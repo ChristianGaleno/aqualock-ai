@@ -1,0 +1,4 @@
+node_modules
+dist
+ml/dataset.csv
+ml/sampel_uji.csv
