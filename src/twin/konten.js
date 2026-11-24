@@ -1,4 +1,4 @@
-// Isi teks bagian 1–8 dan naskah tur 2 menit Si Kumis
+// Isi teks bagian 1–8 dan naskah tur 2 menit Si Nila (ikan nila)
 export const BAGIAN = [
   { no: 1, label: 'Ringkasan', kamera: 'overview', teks: 'Ini klaster 4 kolam bioflok. Klik kolam mana pun atau nomor di layar untuk melihat detailnya.' },
   { no: 2, label: 'Sensor node', kamera: 'node1', teks: 'Tiap kolam punya Sensor Node ESP32. TDS dibaca dulu, probe-nya dimatikan lewat MOSFET, baru pH dibaca. Begitu caranya mencegah ground loop.' },
@@ -14,8 +14,8 @@ export const BAGIAN = [
 export const TUR = [
   {
     bagian: 1, kamera: 'overview', kecepatan: 600, durasi: 11,
-    judul: 'Halo, aku Si Kumis!',
-    teks: 'Aku pemandu klaster AQUA-LOCK. Ada 4 kolam bioflok Ø3 m di sini. Pakan hanya keluar kalau air aman untuk kami.',
+    judul: 'Halo, aku Si Nila!',
+    teks: 'Aku ikan nila pemandu klaster AQUA-LOCK. Ada 4 kolam bioflok Ø3 m di sini. Pakan hanya keluar kalau air aman untuk kami.',
   },
   {
     bagian: 2, kamera: 'node1', kecepatan: 60, durasi: 12,

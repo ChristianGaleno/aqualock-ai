@@ -12,21 +12,21 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { tdsSebenarnya } from '../sim/engine.js';
 
 const WARNA = {
-  rumput: 0xb7cc8a, tanah: 0xa07c55, jalan: 0xeadfca, terpal: 0x2f63b3, rangka: 0x8b93a1,
-  airSehat: new THREE.Color(0x3a9fb0), airKeruh: new THREE.Color(0x7d7a4b), airAlga: new THREE.Color(0x58b04a),
-  pipa: 0x9aa3ae, limbah: 0x7a5630, airBersih: 0x6cc7e8, pelet: 0x8a5a2b,
-  baik: 0x1f9d55, serius: 0xe0892f, kritis: 0xd63b3b, mati: 0x9aa0ab,
+  rumput: 0x9ec9ab, tanah: 0x6f8d9c, jalan: 0xe6f2f7, terpal: 0x0e75bb, rangka: 0x8ea7b8,
+  airSehat: new THREE.Color(0x21979f), airKeruh: new THREE.Color(0x7d7a4b), airAlga: new THREE.Color(0x4eb060),
+  pipa: 0x92aab8, limbah: 0x7a5630, airBersih: 0x00969b, pelet: 0x8a5a2b,
+  baik: 0x10b981, serius: 0xf59e0b, kritis: 0xef4444, mati: 0x9aa0ab,
 };
 
-export const POSISI_KOLAM = [-8.4, -4.2, 0, 4.2].map((x) => new THREE.Vector3(x, 0, 0));
-const POS_TANGKI = new THREE.Vector3(9.3, 0, 2.6);
-const POS_GATEWAY = new THREE.Vector3(9.3, 0, -2.6);
-const POS_TANDON = new THREE.Vector3(-11.4, 0, -3.0);
-const Z_PIPA_DRAIN = 3.2;
-const Z_PIPA_INLET = -2.7;
-const R_KOLAM = 1.5;
-const TINGGI_TERPAL = 1.0;
-const TINGGI_AIR_PENUH = 0.6;
+export const POSISI_KOLAM = [-6.6, -3.3, 0, 3.3].map((x) => new THREE.Vector3(x, 0, 0));
+const POS_TANGKI = new THREE.Vector3(7.4, 0, 2.0);
+const POS_GATEWAY = new THREE.Vector3(7.4, 0, -2.0);
+const POS_TANDON = new THREE.Vector3(-9.2, 0, -2.3);
+const Z_PIPA_DRAIN = 2.45;
+const Z_PIPA_INLET = -2.1;
+const R_KOLAM = 1.18;
+const TINGGI_TERPAL = 0.78;
+const TINGGI_AIR_PENUH = 0.48;
 
 // Pandangan kamera bernama: [posisi kamera, titik tujuan]
 export function pandangan(nama) {
@@ -34,16 +34,16 @@ export function pandangan(nama) {
   const m = /^(kolam|node|feeder)(\d)$/.exec(nama);
   if (m) {
     const p = POSISI_KOLAM[Number(m[2]) - 1];
-    if (m[1] === 'kolam') return [v(p.x + 5.5, 6.2, 8.2), v(p.x, 0.5, 0.3)];
-    if (m[1] === 'node') return [v(p.x + 4.6, 3.4, 6.2), v(p.x + 1.6, 0.9, 1.6)];
-    return [v(p.x + 4.8, 7.0, -8.5), v(p.x - 0.6, 1.0, -0.4)];
+    if (m[1] === 'kolam') return [v(p.x + 4.4, 5.0, 6.6), v(p.x, 0.4, 0.2)];
+    if (m[1] === 'node') return [v(p.x + 3.6, 2.7, 5.0), v(p.x + 1.25, 0.7, 1.25)];
+    return [v(p.x + 3.9, 5.6, -6.8), v(p.x - 0.5, 0.8, -0.35)];
   }
   switch (nama) {
-    case 'gateway': return [v(15.5, 6.5, 4.5), v(POS_GATEWAY.x, 1.2, POS_GATEWAY.z)];
-    case 'tangki': return [v(14.5, 5.5, 10), v(POS_TANGKI.x - 1.5, 0.6, POS_TANGKI.z)];
-    case 'tandon': return [v(-6, 6, 4), v(POS_TANDON.x, 1.5, POS_TANDON.z)];
-    case 'drain': return [v(0.5, 11, 19), v(0.3, 0.2, 1.8)];
-    default: return [v(16.3, 20, 25.6), v(0.3, 0, 0.6)];
+    case 'gateway': return [v(12.2, 5.2, 3.6), v(POS_GATEWAY.x, 0.9, POS_GATEWAY.z)];
+    case 'tangki': return [v(11.6, 4.4, 7.8), v(POS_TANGKI.x - 1.1, 0.5, POS_TANGKI.z)];
+    case 'tandon': return [v(-5.0, 4.8, 3.2), v(POS_TANDON.x, 1.2, POS_TANDON.z)];
+    case 'drain': return [v(0.3, 8.8, 15.2), v(0.2, 0.2, 1.4)];
+    default: return [v(14.0, 17.5, 22.0), v(0.1, 0, 0.4)];
   }
 }
 
@@ -122,15 +122,17 @@ export class TwinScene {
     wadah.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf6efe2);
-    this.scene.fog = new THREE.Fog(0xf6efe2, 38, 70);
+    this.scene.background = new THREE.Color(0xe8f3f8);
+    this.scene.fog = new THREE.Fog(0xe8f3f8, 38, 70);
     this.camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
     const [pos, tuju] = pandangan('overview');
     this.camera.position.copy(pos);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.copy(tuju);
     this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.08;
+    this.controls.dampingFactor = 0.055;
+    this.controls.rotateSpeed = 0.78;
+    this.controls.zoomSpeed = 0.85;
     this.controls.maxPolarAngle = 1.32;
     this.controls.minDistance = 6;
     this.controls.maxDistance = 70;
@@ -157,6 +159,12 @@ export class TwinScene {
     this.ro.observe(wadah);
     this.ukurUlang();
     this.jam = new THREE.Clock();
+    this._m = new THREE.Matrix4();
+    this._langit = new THREE.Color();
+    this._cMalam = new THREE.Color(0x0c243b);
+    this._cSiang = new THREE.Color(0xe8f3f8);
+    this._cHujan = new THREE.Color(0xb8cbd8);
+    this._cTarget = new THREE.Color();
     this._loop = () => { this.frame(); this.raf = requestAnimationFrame(this._loop); };
     this.raf = requestAnimationFrame(this._loop);
   }
@@ -178,15 +186,15 @@ export class TwinScene {
     const g = new THREE.Group();
     const sisi = bahan(WARNA.tanah);
     const atas = bahan(WARNA.rumput);
-    const tanah = new THREE.Mesh(new THREE.BoxGeometry(26, 0.8, 14.5), [sisi, sisi, atas, sisi, sisi, sisi]);
-    tanah.position.y = -0.4;
+    const tanah = new THREE.Mesh(new THREE.BoxGeometry(21.5, 0.65, 11.8), [sisi, sisi, atas, sisi, sisi, sisi]);
+    tanah.position.y = -0.325;
     tanah.receiveShadow = true;
     g.add(tanah);
-    const jalan = new THREE.Mesh(new THREE.BoxGeometry(20, 0.04, 1.1), bahan(WARNA.jalan));
-    jalan.position.set(-1.5, 0.02, 2.15);
+    const jalan = new THREE.Mesh(new THREE.BoxGeometry(16, 0.035, 0.85), bahan(WARNA.jalan));
+    jalan.position.set(-1.2, 0.018, 1.72);
     jalan.receiveShadow = true;
-    const jalan2 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.04, 8.5), bahan(WARNA.jalan));
-    jalan2.position.set(7.3, 0.02, 0);
+    const jalan2 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.035, 6.8), bahan(WARNA.jalan));
+    jalan2.position.set(5.8, 0.018, 0);
     jalan2.receiveShadow = true;
     g.add(jalan, jalan2);
     this.scene.add(g);
@@ -201,72 +209,84 @@ export class TwinScene {
     const dasar = new THREE.Mesh(new THREE.CircleGeometry(R_KOLAM, 40), bahan(0x1f3f73));
     dasar.rotation.x = -Math.PI / 2;
     dasar.position.y = 0.03;
-    const bibir = new THREE.Mesh(new THREE.TorusGeometry(R_KOLAM, 0.045, 6, 48), bahan(WARNA.rangka, { metalness: 0.4 }));
+    const bibir = new THREE.Mesh(new THREE.TorusGeometry(R_KOLAM, 0.035, 6, 48), bahan(WARNA.rangka, { metalness: 0.4 }));
     bibir.rotation.x = Math.PI / 2;
     bibir.position.y = TINGGI_TERPAL;
     g.add(terpal, dasar, bibir);
     for (let a = 0; a < 8; a++) {
-      const tiang = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, TINGGI_TERPAL, 5), bahan(WARNA.rangka, { metalness: 0.4 }));
-      tiang.position.set(Math.cos((a / 8) * Math.PI * 2) * (R_KOLAM + 0.04), TINGGI_TERPAL / 2, Math.sin((a / 8) * Math.PI * 2) * (R_KOLAM + 0.04));
+      const tiang = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, TINGGI_TERPAL, 5), bahan(WARNA.rangka, { metalness: 0.4 }));
+      tiang.position.set(Math.cos((a / 8) * Math.PI * 2) * (R_KOLAM + 0.03), TINGGI_TERPAL / 2, Math.sin((a / 8) * Math.PI * 2) * (R_KOLAM + 0.03));
       g.add(tiang);
     }
     // badan air (diskalakan sesuai volume)
-    const air = new THREE.Mesh(new THREE.CylinderGeometry(R_KOLAM - 0.04, R_KOLAM - 0.04, 1, 40),
+    const air = new THREE.Mesh(new THREE.CylinderGeometry(R_KOLAM - 0.03, R_KOLAM - 0.03, 1, 40),
       new THREE.MeshStandardMaterial({ color: WARNA.airSehat.clone(), transparent: true, opacity: 0.86, roughness: 0.15, metalness: 0.1 }));
     air.position.y = TINGGI_AIR_PENUH / 2;
     air.scale.y = TINGGI_AIR_PENUH;
     air.receiveShadow = true;
     g.add(air);
-    // cincin status di tanah
-    const cincin = new THREE.Mesh(new THREE.RingGeometry(R_KOLAM + 0.15, R_KOLAM + 0.42, 48),
-      new THREE.MeshBasicMaterial({ color: WARNA.baik, transparent: true, opacity: 0.75 }));
+    // cincin status di tanah (lebih ramping)
+    const cincin = new THREE.Mesh(new THREE.RingGeometry(R_KOLAM + 0.08, R_KOLAM + 0.22, 48),
+      new THREE.MeshBasicMaterial({ color: WARNA.baik, transparent: true, opacity: 0.72 }));
     cincin.rotation.x = -Math.PI / 2;
-    cincin.position.y = 0.05;
+    cincin.position.y = 0.04;
     g.add(cincin);
-    // ikan lele
+    // ikan nila merah (oval pipih + sirip ekor kipas + sirip punggung)
     const ikan = [];
-    const geoIkan = new THREE.CapsuleGeometry(0.045, 0.22, 3, 6);
-    geoIkan.rotateZ(Math.PI / 2);
+    const geoBadanNila = new THREE.SphereGeometry(0.055, 8, 6);
+    geoBadanNila.scale(1.45, 0.85, 0.42);
+    const geoEkorNila = new THREE.ConeGeometry(0.038, 0.068, 5);
+    geoEkorNila.rotateZ(Math.PI / 2);
+    geoEkorNila.scale(1, 1, 0.28);
+    const geoPunggungNila = new THREE.ConeGeometry(0.042, 0.05, 4);
+    geoPunggungNila.scale(1.2, 0.5, 0.16);
+    const warnaNila = [0xeb6834, 0xf28749, 0xd9532f];
     for (let f = 0; f < 7; f++) {
-      const m = new THREE.Mesh(geoIkan, bahan(0x4d5262));
-      m.userData = { r: 0.35 + Math.random() * 0.8, w: 0.25 + Math.random() * 0.35, f: Math.random() * 6.28, d: Math.random() * 0.25 };
+      const m = new THREE.Group();
+      const badan = new THREE.Mesh(geoBadanNila, bahan(warnaNila[f % 3], { flatShading: false, roughness: 0.45 }));
+      const ekor = new THREE.Mesh(geoEkorNila, bahan(0xc93e22));
+      ekor.position.x = -0.085;
+      const punggung = new THREE.Mesh(geoPunggungNila, bahan(0xd44326));
+      punggung.position.set(-0.01, 0.044, 0);
+      m.add(badan, ekor, punggung);
+      m.userData = { r: 0.28 + Math.random() * 0.62, w: 0.25 + Math.random() * 0.35, f: Math.random() * 6.28, d: Math.random() * 0.18 };
       g.add(m);
       ikan.push(m);
     }
-    // auto-feeder: tiang + lengan + hopper
+    // auto-feeder: lebih ringkas
     const feeder = new THREE.Group();
-    feeder.position.set(-1.25, 0, -1.25);
-    const tiangF = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.7, 6), bahan(0x6d737d, { metalness: 0.5 }));
-    tiangF.position.y = 0.85;
-    const lengan = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.06), bahan(0x6d737d));
-    lengan.position.set(0.4, 1.65, 0.4);
+    feeder.position.set(-0.98, 0, -0.98);
+    const tiangF = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 1.32, 6), bahan(0x6d737d, { metalness: 0.5 }));
+    tiangF.position.y = 0.66;
+    const lengan = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.045, 0.045), bahan(0x6d737d));
+    lengan.position.set(0.32, 1.28, 0.32);
     lengan.rotation.y = -Math.PI / 4;
-    const hopper = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.08, 0.4, 10), bahan(0xf1e6cf));
-    hopper.position.set(0.7, 1.82, 0.7);
-    const tutup = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.05, 10), bahan(0xe26d2c));
-    tutup.position.set(0.7, 2.04, 0.7);
-    const gembok = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.06), new THREE.MeshStandardMaterial({ color: WARNA.kritis, emissive: WARNA.kritis, emissiveIntensity: 0.6 }));
-    gembok.position.set(0.7, 1.6, 0.92);
+    const hopper = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.06, 0.3, 10), bahan(0xf1e6cf));
+    hopper.position.set(0.55, 1.42, 0.55);
+    const tutup = new THREE.Mesh(new THREE.CylinderGeometry(0.175, 0.175, 0.04, 10), bahan(0x00969b));
+    tutup.position.set(0.55, 1.59, 0.55);
+    const gembok = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.095, 0.048), new THREE.MeshStandardMaterial({ color: WARNA.kritis, emissive: WARNA.kritis, emissiveIntensity: 0.6 }));
+    gembok.position.set(0.55, 1.25, 0.72);
     feeder.add(tiangF, lengan, hopper, tutup, gembok);
     g.add(feeder);
-    // node ESP32 + botol dosing
+    // node ESP32 + botol dosing (lebih ringkas)
     const node = new THREE.Group();
-    node.position.set(1.65, 0, 1.6);
-    const tiangN = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 6), bahan(0x6d737d));
-    tiangN.position.y = 0.6;
-    const kotak = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.18), bahan(0xf7f4ee));
-    kotak.position.y = 1.2;
-    const led = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), new THREE.MeshStandardMaterial({ color: WARNA.baik, emissive: WARNA.baik, emissiveIntensity: 1.2 }));
-    led.position.set(0.12, 1.26, 0.1);
-    const antena = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.35, 4), bahan(0x333844));
-    antena.position.set(-0.14, 1.52, 0);
-    const kabel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.0, 4), bahan(0x2b2f3a));
-    kabel.position.set(-0.55, 0.8, -0.45);
+    node.position.set(1.28, 0, 1.24);
+    const tiangN = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.92, 6), bahan(0x6d737d));
+    tiangN.position.y = 0.46;
+    const kotak = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.14), bahan(0xf7f4ee));
+    kotak.position.y = 0.92;
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.034, 8, 6), new THREE.MeshStandardMaterial({ color: WARNA.baik, emissive: WARNA.baik, emissiveIntensity: 1.2 }));
+    led.position.set(0.09, 0.97, 0.08);
+    const antena = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.26, 4), bahan(0x333844));
+    antena.position.set(-0.1, 1.16, 0);
+    const kabel = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.78, 4), bahan(0x2b2f3a));
+    kabel.position.set(-0.42, 0.62, -0.35);
     kabel.rotation.z = 0.7;
-    const botolUp = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.3, 10), bahan(0x3d7fd9));
-    botolUp.position.set(0.32, 0.15, 0.05);
-    const botolDown = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.3, 10), bahan(0xd6553b));
-    botolDown.position.set(0.55, 0.15, -0.12);
+    const botolUp = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.23, 10), bahan(0x3d7fd9));
+    botolUp.position.set(0.24, 0.115, 0.04);
+    const botolDown = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.23, 10), bahan(0xd6553b));
+    botolDown.position.set(0.42, 0.115, -0.09);
     node.add(tiangN, kotak, led, antena, kabel, botolUp, botolDown);
     g.add(node);
     bayang(g);
@@ -276,11 +296,11 @@ export class TwinScene {
     this.scene.add(g);
 
     // partikel: pelet pakan & tetes dosing
-    const pelet = new THREE.InstancedMesh(new THREE.SphereGeometry(0.035, 5, 4), bahan(WARNA.pelet), 24);
+    const pelet = new THREE.InstancedMesh(new THREE.SphereGeometry(0.026, 5, 4), bahan(WARNA.pelet), 24);
     pelet.frustumCulled = false;
     pelet.visible = false;
     g.add(pelet);
-    const tetes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.04, 6, 5), bahan(0x3d7fd9, { roughness: 0.3 }), 8);
+    const tetes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.03, 6, 5), bahan(0x3d7fd9, { roughness: 0.3 }), 8);
     tetes.frustumCulled = false;
     tetes.visible = false;
     g.add(tetes);
@@ -297,74 +317,74 @@ export class TwinScene {
       m.castShadow = true;
       this.scene.add(m);
     };
-    const yD = 0.1;
-    ruas(new THREE.Vector3(POSISI_KOLAM[0].x, yD, Z_PIPA_DRAIN), new THREE.Vector3(POS_TANGKI.x - 0.75, yD, Z_PIPA_DRAIN), 0.09);
-    const yI = 1.15;
-    ruas(new THREE.Vector3(POS_TANDON.x, yI, Z_PIPA_INLET), new THREE.Vector3(POSISI_KOLAM[3].x, yI, Z_PIPA_INLET), 0.05);
+    const yD = 0.08;
+    ruas(new THREE.Vector3(POSISI_KOLAM[0].x, yD, Z_PIPA_DRAIN), new THREE.Vector3(POS_TANGKI.x - 0.55, yD, Z_PIPA_DRAIN), 0.068);
+    const yI = 0.9;
+    ruas(new THREE.Vector3(POS_TANDON.x, yI, Z_PIPA_INLET), new THREE.Vector3(POSISI_KOLAM[3].x, yI, Z_PIPA_INLET), 0.04);
     this.aliranDrain = [];
     this.aliranInlet = [];
     POSISI_KOLAM.forEach((p) => {
-      ruas(new THREE.Vector3(p.x, yD, R_KOLAM - 0.2), new THREE.Vector3(p.x, yD, Z_PIPA_DRAIN), 0.08);
-      const katup = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.22), bahan(0x2f3a52));
-      katup.position.set(p.x, 0.16, 2.45);
+      ruas(new THREE.Vector3(p.x, yD, R_KOLAM - 0.15), new THREE.Vector3(p.x, yD, Z_PIPA_DRAIN), 0.06);
+      const katup = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.16), bahan(0x2f3a52));
+      katup.position.set(p.x, 0.12, 1.9);
       katup.castShadow = true;
       this.scene.add(katup);
-      ruas(new THREE.Vector3(p.x, yI, Z_PIPA_INLET), new THREE.Vector3(p.x, yI, -R_KOLAM + 0.1), 0.05);
-      ruas(new THREE.Vector3(p.x, yI, -R_KOLAM + 0.1), new THREE.Vector3(p.x, yI - 0.1, -R_KOLAM + 0.35), 0.05);
+      ruas(new THREE.Vector3(p.x, yI, Z_PIPA_INLET), new THREE.Vector3(p.x, yI, -R_KOLAM + 0.08), 0.038);
+      ruas(new THREE.Vector3(p.x, yI, -R_KOLAM + 0.08), new THREE.Vector3(p.x, yI - 0.08, -R_KOLAM + 0.28), 0.038);
       this.aliranDrain.push(new Aliran(this.scene, new Lintasan([
-        new THREE.Vector3(p.x, 0.12, 0), new THREE.Vector3(p.x, yD + 0.02, Z_PIPA_DRAIN),
-        new THREE.Vector3(POS_TANGKI.x - 0.8, yD + 0.02, Z_PIPA_DRAIN), new THREE.Vector3(POS_TANGKI.x - 0.5, 1.2, POS_TANGKI.z + 0.3),
-      ]), WARNA.limbah, 22, 0.08));
+        new THREE.Vector3(p.x, 0.09, 0), new THREE.Vector3(p.x, yD + 0.02, Z_PIPA_DRAIN),
+        new THREE.Vector3(POS_TANGKI.x - 0.6, yD + 0.02, Z_PIPA_DRAIN), new THREE.Vector3(POS_TANGKI.x - 0.35, 0.92, POS_TANGKI.z + 0.22),
+      ]), WARNA.limbah, 20, 0.06));
       this.aliranInlet.push(new Aliran(this.scene, new Lintasan([
         new THREE.Vector3(POS_TANDON.x, yI, Z_PIPA_INLET), new THREE.Vector3(p.x, yI, Z_PIPA_INLET),
-        new THREE.Vector3(p.x, yI, -R_KOLAM + 0.35), new THREE.Vector3(p.x, 0.5, -R_KOLAM + 0.5),
-      ]), WARNA.airBersih, 22, 0.06));
+        new THREE.Vector3(p.x, yI, -R_KOLAM + 0.28), new THREE.Vector3(p.x, 0.4, -R_KOLAM + 0.4),
+      ]), WARNA.airBersih, 20, 0.048));
     });
   }
 
   bangunTangki() {
     const g = new THREE.Group();
     g.position.copy(POS_TANGKI);
-    const palet = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.14, 1.2), bahan(0xb98a55));
-    palet.position.y = 0.07;
-    const sisi = 1.2, tinggi = 1.1;
-    const badan = new THREE.Mesh(new THREE.BoxGeometry(sisi, tinggi, 1.05),
+    const palet = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.1, 0.92), bahan(0xb98a55));
+    palet.position.y = 0.05;
+    const sisi = 0.92, tinggi = 0.85;
+    const badan = new THREE.Mesh(new THREE.BoxGeometry(sisi, tinggi, 0.8),
       new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.32, roughness: 0.3 }));
-    badan.position.y = 0.14 + tinggi / 2;
-    const kandang = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sisi + 0.04, tinggi + 0.04, 1.09, 3, 3, 3)),
+    badan.position.y = 0.1 + tinggi / 2;
+    const kandang = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sisi + 0.03, tinggi + 0.03, 0.83, 3, 3, 3)),
       new THREE.LineBasicMaterial({ color: 0x8b93a1 }));
     kandang.position.copy(badan.position);
-    const isi = new THREE.Mesh(new THREE.BoxGeometry(sisi - 0.08, 1, 0.97), bahan(WARNA.limbah, { flatShading: false }));
-    isi.position.y = 0.16;
+    const isi = new THREE.Mesh(new THREE.BoxGeometry(sisi - 0.06, 1, 0.74), bahan(WARNA.limbah, { flatShading: false }));
+    isi.position.y = 0.12;
     g.add(palet, badan, kandang, isi);
     bayang(g);
     badan.castShadow = false;
     this.tangkiIsi = isi;
-    this.tangkiTinggi = tinggi - 0.06;
+    this.tangkiTinggi = tinggi - 0.05;
     this.scene.add(g);
   }
 
   bangunGateway() {
     const g = new THREE.Group();
     g.position.copy(POS_GATEWAY);
-    const dinding = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.7, 2.0), bahan(0xf3ead9));
-    dinding.position.y = 0.85;
-    const atap = new THREE.Mesh(new THREE.ConeGeometry(1.95, 0.9, 4), bahan(0x1b2a5e));
+    const dinding = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.3, 1.5), bahan(0xf0f7fb));
+    dinding.position.y = 0.65;
+    const atap = new THREE.Mesh(new THREE.ConeGeometry(1.48, 0.68, 4), bahan(0x0e75bb));
     atap.rotation.y = Math.PI / 4;
-    atap.position.y = 2.15;
-    const pintu = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.05, 0.04), bahan(0x6b4a2f));
-    pintu.position.set(-0.6, 0.53, 1.01);
-    const layar = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.42), new THREE.MeshStandardMaterial({ color: 0x0b1020, emissive: 0x2a78d6, emissiveIntensity: 0.9 }));
-    layar.position.set(0.5, 1.05, 1.011);
-    const tiang = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.4, 5), bahan(0x50586a));
-    tiang.position.set(0.8, 2.9, -0.4);
+    atap.position.y = 1.64;
+    const pintu = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.8, 0.03), bahan(0x21979f));
+    pintu.position.set(-0.45, 0.4, 0.76);
+    const layar = new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.32), new THREE.MeshStandardMaterial({ color: 0x0b1020, emissive: 0x00969b, emissiveIntensity: 0.9 }));
+    layar.position.set(0.38, 0.8, 0.761);
+    const tiang = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 1.05, 5), bahan(0x50586a));
+    tiang.position.set(0.6, 2.2, -0.3);
     g.add(dinding, atap, pintu, layar, tiang);
     bayang(g);
     this.layarGateway = layar;
     this.cincinWifi = [0, 1, 2].map((i) => {
-      const r = new THREE.Mesh(new THREE.TorusGeometry(0.25 + i * 0.22, 0.025, 4, 24, Math.PI),
-        new THREE.MeshBasicMaterial({ color: 0x1f8fa6, transparent: true, opacity: 0 }));
-      r.position.set(0.8, 3.6, -0.4);
+      const r = new THREE.Mesh(new THREE.TorusGeometry(0.18 + i * 0.16, 0.02, 4, 24, Math.PI),
+        new THREE.MeshBasicMaterial({ color: 0x00969b, transparent: true, opacity: 0 }));
+      r.position.set(0.6, 2.75, -0.3);
       g.add(r);
       return r;
     });
@@ -377,31 +397,31 @@ export class TwinScene {
     const g = new THREE.Group();
     g.position.copy(POS_TANDON);
     for (let i = 0; i < 4; i++) {
-      const kaki = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.4, 0.08), bahan(0x6d737d));
-      kaki.position.set(i % 2 ? 0.55 : -0.55, 0.7, i < 2 ? 0.55 : -0.55);
+      const kaki = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.08, 0.06), bahan(0x6d737d));
+      kaki.position.set(i % 2 ? 0.42 : -0.42, 0.54, i < 2 ? 0.42 : -0.42);
       g.add(kaki);
     }
-    const alas = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 1.4), bahan(0x6d737d));
-    alas.position.y = 1.4;
-    const tabung = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 1.3, 20), bahan(0x2c6fd1, { flatShading: false }));
-    tabung.position.y = 2.1;
-    const tutup = new THREE.Mesh(new THREE.ConeGeometry(0.66, 0.3, 20), bahan(0x2c6fd1, { flatShading: false }));
-    tutup.position.y = 2.9;
+    const alas = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.06, 1.08), bahan(0x6d737d));
+    alas.position.y = 1.08;
+    const tabung = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.0, 20), bahan(0x0e75bb, { flatShading: false }));
+    tabung.position.y = 1.62;
+    const tutup = new THREE.Mesh(new THREE.ConeGeometry(0.51, 0.22, 20), bahan(0x21979f, { flatShading: false }));
+    tutup.position.y = 2.23;
     g.add(alas, tabung, tutup);
     bayang(g);
     this.scene.add(g);
   }
 
   bangunPohon() {
-    const titik = [[-12.2, 5.6], [-9.5, 6.1], [-3.5, 6.3], [3.5, 6.2], [12.2, 5.8], [12.1, -6.0], [5.8, -6.2], [-1.6, -6.3], [-7.5, -6.0], [-12.3, 0.8]];
+    const titik = [[-9.8, 4.5], [-7.5, 4.9], [-2.8, 5.0], [2.8, 4.9], [9.8, 4.6], [9.6, -4.8], [4.6, -4.9], [-1.3, -5.0], [-6.0, -4.8], [-9.9, 0.7]];
     const daun = [bahan(0x6f9a4a), bahan(0x82ac57), bahan(0x5d8a43)];
     titik.forEach(([x, z], i) => {
       const g = new THREE.Group();
       g.position.set(x, 0, z);
-      const batang = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.8, 5), bahan(0x7a5a3a));
-      batang.position.y = 0.4;
-      const tajuk = new THREE.Mesh(new THREE.IcosahedronGeometry(0.65 + (i % 3) * 0.15, 0), daun[i % 3]);
-      tajuk.position.y = 1.2 + (i % 2) * 0.2;
+      const batang = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.58, 5), bahan(0x7a5a3a));
+      batang.position.y = 0.29;
+      const tajuk = new THREE.Mesh(new THREE.IcosahedronGeometry(0.45 + (i % 3) * 0.1, 0), daun[i % 3]);
+      tajuk.position.y = 0.85 + (i % 2) * 0.12;
       g.add(batang, tajuk);
       g.rotation.y = i;
       this.scene.add(bayang(g));
@@ -436,23 +456,23 @@ export class TwinScene {
 
   bangunLabel() {
     const titik = [
-      [1, 'Ringkasan klaster', new THREE.Vector3(-2.1, 2.8, -1.2)],
-      [2, 'Sensor Node ESP32', new THREE.Vector3(POSISI_KOLAM[0].x + 1.65, 1.95, 1.6)],
-      [3, 'AI di Master Gateway', new THREE.Vector3(POS_GATEWAY.x, 3.9, POS_GATEWAY.z + 0.2)],
-      [4, 'Auto-feeder + kunci', new THREE.Vector3(POSISI_KOLAM[1].x - 0.55, 2.55, -0.55)],
-      [5, 'Katup drain & inlet', new THREE.Vector3(POSISI_KOLAM[2].x, 0.75, 2.45)],
-      [6, 'Tangki POC', new THREE.Vector3(POS_TANGKI.x, 2.1, POS_TANGKI.z)],
-      [8, 'Probe pH & TDS', new THREE.Vector3(POSISI_KOLAM[3].x + 1.0, 1.4, 1.2)],
+      [1, 'Ringkasan klaster', new THREE.Vector3(-1.65, 2.2, -0.95)],
+      [2, 'Sensor Node ESP32', new THREE.Vector3(POSISI_KOLAM[0].x + 1.28, 1.5, 1.24)],
+      [3, 'AI di Master Gateway', new THREE.Vector3(POS_GATEWAY.x, 3.0, POS_GATEWAY.z + 0.15)],
+      [4, 'Auto-feeder + kunci', new THREE.Vector3(POSISI_KOLAM[1].x - 0.43, 1.95, -0.43)],
+      [5, 'Katup drain & inlet', new THREE.Vector3(POSISI_KOLAM[2].x, 0.58, 1.9)],
+      [6, 'Tangki POC', new THREE.Vector3(POS_TANGKI.x, 1.6, POS_TANGKI.z)],
+      [8, 'Probe pH & TDS', new THREE.Vector3(POSISI_KOLAM[3].x + 0.8, 1.1, 0.95)],
     ];
     this.labelTitik = titik.map(([no, teks, pos]) => this.tambahLabel(pos, 'lbl-titik',
       `<span class="lbl-no">${no}</span>${teks}`, { tombol: true, onClick: () => this.cb.saatBagian?.(no) }));
 
     this.labelKolam = this.sim.kolam.map((k, i) => this.tambahLabel(
-      new THREE.Vector3(POSISI_KOLAM[i].x, 1.55, POSISI_KOLAM[i].z), 'lbl-kolam', '', { tombol: true, selalu: true, onClick: () => this.cb.saatPilihKolam?.(k.id) }));
+      new THREE.Vector3(POSISI_KOLAM[i].x, 1.22, POSISI_KOLAM[i].z), 'lbl-kolam', '', { tombol: true, selalu: true, onClick: () => this.cb.saatPilihKolam?.(k.id) }));
 
-    this.labelGateway = this.tambahLabel(new THREE.Vector3(POS_GATEWAY.x, 5.0, POS_GATEWAY.z), 'lbl-gelembung', '');
-    this.labelTangki = this.tambahLabel(new THREE.Vector3(POS_TANGKI.x, 3.0, POS_TANGKI.z), 'lbl-gelembung kecil', '');
-    this.labelTandon = this.tambahLabel(new THREE.Vector3(POS_TANDON.x, 3.6, POS_TANDON.z), 'lbl-gelembung kecil', '<b>Tandon air bersih</b><span>inlet ke 4 kolam</span>');
+    this.labelGateway = this.tambahLabel(new THREE.Vector3(POS_GATEWAY.x, 3.8, POS_GATEWAY.z), 'lbl-gelembung', '');
+    this.labelTangki = this.tambahLabel(new THREE.Vector3(POS_TANGKI.x, 2.3, POS_TANGKI.z), 'lbl-gelembung kecil', '');
+    this.labelTandon = this.tambahLabel(new THREE.Vector3(POS_TANDON.x, 2.75, POS_TANDON.z), 'lbl-gelembung kecil', '<b>Tandon air bersih</b><span>inlet ke 4 kolam</span>');
   }
 
   perbaruiIsiLabel() {
@@ -560,25 +580,25 @@ export class TwinScene {
     if (this.tween) {
       const tw = this.tween;
       tw.t += dt / tw.d;
-      const e = tw.t >= 1 ? 1 : tw.t < 0.5 ? 2 * tw.t * tw.t : 1 - (-2 * tw.t + 2) ** 2 / 2;
+      const e = tw.t >= 1 ? 1 : tw.t < 0.5 ? 4 * tw.t * tw.t * tw.t : 1 - (-2 * tw.t + 2) ** 3 / 2;
       this.camera.position.lerpVectors(tw.dari, tw.ke, e);
       this.controls.target.lerpVectors(tw.tDari, tw.tKe, e);
       if (tw.t >= 1) this.tween = null;
     }
     this.controls.update();
 
-    // Siang–malam dari jam simulasi
+    // Siang–malam dari jam simulasi (warna selaras tema biru-teal, zero alokasi per frame)
     const jam = sim.jam;
-    const sudut = ((jam - 6) / 12) * Math.PI;              // 06.00 terbit, 18.00 terbenam
+    const sudut = ((jam - 6) / 12) * Math.PI;
     const tinggiMatahari = Math.sin(sudut);
     const siang = THREE.MathUtils.clamp(tinggiMatahari * 1.6 + 0.15, 0, 1);
     this.matahari.position.set(Math.cos(sudut) * 20, Math.max(2, tinggiMatahari * 22), 10);
     this.matahari.intensity = 0.25 + 2.0 * siang;
     this.hemi.intensity = 0.45 + 0.75 * siang;
     const hujan = sim.kolam[0].air.hujan;
-    const langit = new THREE.Color(0x29365f).lerp(new THREE.Color(0xf6efe2), siang).lerp(new THREE.Color(0xc9ced6), Math.min(0.6, hujan * 0.8));
-    this.scene.background.copy(langit);
-    this.scene.fog.color.copy(langit);
+    this._langit.copy(this._cMalam).lerp(this._cSiang, siang).lerp(this._cHujan, Math.min(0.6, hujan * 0.8));
+    this.scene.background.copy(this._langit);
+    this.scene.fog.color.copy(this._langit);
     this.hujan.material.opacity = Math.min(0.75, hujan * 1.1);
     this.hujan.visible = hujan > 0.04;
     if (this.hujan.visible) {
@@ -594,20 +614,24 @@ export class TwinScene {
     this.cincinWifi.forEach((c, i) => { c.material.opacity = hang ? 0.1 : Math.max(0, this.denyutWifi - i * 0.2) * 0.9; });
     this.layarGateway.material.emissiveIntensity = hang ? 0.1 + 0.3 * (Math.sin(t * 8) > 0 ? 1 : 0) : 0.9;
 
-    const _m = new THREE.Matrix4();
+    const _m = this._m;
+    const damp = 1 - Math.exp(-6 * dt);
     sim.kolam.forEach((k, i) => {
       const v = this.kolam[i];
-      const level = (k.air.volumeL / k.V0) * TINGGI_AIR_PENUH;
-      v.air.scale.y = Math.max(0.05, level);
+      const levelTarget = Math.max(0.05, (k.air.volumeL / k.V0) * TINGGI_AIR_PENUH);
+      const level = v.air.scale.y + (levelTarget - v.air.scale.y) * damp;
+      v.air.scale.y = level;
       v.air.position.y = level / 2 + 0.02;
       const keruh = THREE.MathUtils.clamp((tdsSebenarnya(k) - 380) / 320, 0, 1);
-      v.air.material.color.copy(WARNA.airSehat).lerp(WARNA.airKeruh, keruh).lerp(WARNA.airAlga, Math.min(1, k.air.bloom * 0.9));
+      this._cTarget.copy(WARNA.airSehat).lerp(WARNA.airKeruh, keruh).lerp(WARNA.airAlga, Math.min(1, k.air.bloom * 0.9));
+      v.air.material.color.lerp(this._cTarget, damp);
 
       let warna = WARNA.baik;
       if (!k.online || hang) warna = WARNA.mati;
       else if (k.fsm.state === 'CLEANING') warna = WARNA.kritis;
       else if (k.fsm.state === 'PH_RECOVERY') warna = WARNA.serius;
-      v.cincin.material.color.setHex(warna);
+      this._cTarget.setHex(warna);
+      v.cincin.material.color.lerp(this._cTarget, damp);
       const kunci = sim.terkunci(k);
       v.cincin.material.opacity = kunci ? 0.55 + 0.35 * Math.sin(t * 4) : 0.7;
       v.cincin.scale.setScalar(k.id === this.idPilih ? 1.04 : 1);
@@ -615,11 +639,12 @@ export class TwinScene {
       v.led.material.emissive.setHex(k.online ? WARNA.baik : WARNA.kritis);
       v.led.material.emissiveIntensity = k.online ? 0.6 + 0.8 * (Math.sin(t * 6 + i) > 0.7 ? 1 : 0) : 1.2;
 
-      v.ikan.forEach((f) => {
+      v.ikan.forEach((f, idx) => {
         const u = f.userData;
         u.f += dt * u.w * (kunci ? 0.6 : 1);
-        f.position.set(Math.cos(u.f) * u.r, Math.max(0.1, level - 0.08 - u.d), Math.sin(u.f) * u.r);
+        f.position.set(Math.cos(u.f) * u.r, Math.max(0.08, level - 0.06 - u.d), Math.sin(u.f) * u.r);
         f.rotation.y = -u.f;
+        if (f.children[1]) f.children[1].rotation.y = Math.sin(t * 9 + idx) * 0.4;
       });
 
       // Pelet jatuh saat pakan benar-benar diberikan
@@ -630,7 +655,7 @@ export class TwinScene {
       if (v.pelet.visible) {
         for (let j = 0; j < 24; j++) {
           const f = (umurP * 1.3 + j / 24) % 1;
-          _m.makeTranslation(-0.55 + Math.sin(j * 2.1) * 0.25, 1.75 - f * (1.75 - level), -0.55 + Math.cos(j * 1.7) * 0.25);
+          _m.makeTranslation(-0.43 + Math.sin(j * 2.1) * 0.2, 1.38 - f * (1.38 - level), -0.43 + Math.cos(j * 1.7) * 0.2);
           v.pelet.setMatrixAt(j, _m);
         }
         v.pelet.instanceMatrix.needsUpdate = true;
@@ -643,7 +668,7 @@ export class TwinScene {
       if (v.tetes.visible) {
         for (let j = 0; j < 8; j++) {
           const f = (umurT * 1.6 + j / 8) % 1;
-          _m.makeTranslation(1.25 - f * 0.35, 1.1 - f * (1.1 - level), 1.2 - f * 0.35);
+          _m.makeTranslation(0.95 - f * 0.28, 0.85 - f * (0.85 - level), 0.92 - f * 0.28);
           v.tetes.setMatrixAt(j, _m);
         }
         v.tetes.instanceMatrix.needsUpdate = true;
@@ -654,7 +679,7 @@ export class TwinScene {
 
     const isi = Math.min(1, sim.tangki.isiL / sim.tangki.kapasitasL);
     this.tangkiIsi.scale.y = Math.max(0.01, isi * this.tangkiTinggi);
-    this.tangkiIsi.position.y = 0.16 + (isi * this.tangkiTinggi) / 2;
+    this.tangkiIsi.position.y = 0.12 + (isi * this.tangkiTinggi) / 2;
 
     this.jamUi += dt;
     if (this.jamUi > 0.25) { this.jamUi = 0; this.perbaruiIsiLabel(); }
