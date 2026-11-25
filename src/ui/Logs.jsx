@@ -35,22 +35,41 @@ export function LogKejadian({ sim, idPilih }) {
   );
 }
 
+const TOPIK_FILTER = [
+  ['/sensor', '…/sensor'],
+  ['/ai', '…/ai'],
+  ['/cmd', '…/cmd'],
+  ['/event', '…/event'],
+  ['/status', '…/status (LWT)'],
+];
+
 export function AliranMqtt({ sim, jumlah = 14 }) {
   const [filter, setFilter] = useState('semua');
-  const daftar = sim.mqtt.filter((m) => filter === 'semua' || m.topik.endsWith(filter)).slice(0, jumlah);
+  const cocok = (m, f) => f === 'semua' || m.topik.endsWith(f);
+  const hitung = (f) => sim.mqtt.filter((m) => cocok(m, f)).length;
+  const daftar = sim.mqtt.filter((m) => cocok(m, filter)).slice(0, jumlah);
   return (
     <section className="kartu mqtt">
       <div className="blok-kepala">
         <h4>Aliran MQTT lokal</h4>
         <select aria-label="Filter topik" value={filter} onChange={(e) => setFilter(e.target.value)}>
-          <option value="semua">Semua topik</option>
-          <option value="/sensor">…/sensor</option>
-          <option value="/ai">…/ai</option>
-          <option value="/cmd">…/cmd</option>
-          <option value="/event">…/event</option>
-          <option value="/status">…/status (LWT)</option>
+          <option value="semua">Semua topik ({sim.mqtt.length})</option>
+          {TOPIK_FILTER.map(([v, label]) => (
+            <option key={v} value={v}>{label} ({hitung(v)})</option>
+          ))}
         </select>
       </div>
+      {daftar.length === 0 && (
+        <p className="catatan">
+          {sim.mqtt.length === 0
+            ? 'Belum ada pesan MQTT. Pastikan simulasi berjalan (tidak dijeda); pesan sensor & AI dikirim tiap 30 detik waktu simulasi.'
+            : filter === '/status'
+              ? 'Belum ada pesan …/status. Pesan LWT muncul saat node online/offline (coba skenario node mati).'
+              : filter === '/event'
+                ? 'Belum ada pesan …/event. Muncul saat tombol Manual Feed ditolak karena kunci pakan aktif.'
+                : 'Belum ada pesan untuk topik ini.'}
+        </p>
+      )}
       <ol className="mqtt-daftar">
         {daftar.map((m) => (
           <li key={m.id}>

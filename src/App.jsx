@@ -88,8 +88,11 @@ export default function App() {
   const nodeApiRef = useRef(null);
 
   // ---------------- Loop simulasi klaster 4 kolam ----------------
+  // Juga berjalan saat lembar Arsitektur & MQTT dibuka, supaya aliran MQTT terisi
+  // walau pengguna sedang di ruang lain.
+  const simAktif = ruang === 'klaster' || lembar === 'arsitektur';
   useEffect(() => {
-    if (ruang !== 'klaster' || !jalan) return undefined;
+    if (!simAktif || !jalan) return undefined;
     let terakhir = performance.now();
     const id = setInterval(() => {
       const kini = performance.now();
@@ -99,7 +102,7 @@ export default function App() {
       segarkan();
     }, 100);
     return () => clearInterval(id);
-  }, [ruang, jalan, kecepatan, segarkan]);
+  }, [simAktif, jalan, kecepatan, segarkan]);
 
   // Timelapse berhenti otomatis setelah durasinya tercapai
   useEffect(() => {
