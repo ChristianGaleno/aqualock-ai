@@ -166,7 +166,7 @@ kbd { font: 600 11px var(--font); border: 1px solid currentColor; border-radius:
 .progres-tur i { display: block; height: 100%; background: var(--oranye); transform-origin: left; animation: isi linear forwards; }
 @keyframes isi { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .maskot { flex: none; filter: drop-shadow(0 5px 10px rgb(27 42 94 / 16%)); }
-.maskot.melambai .mk-sirip { transform-origin: 158px 130px; animation: lambai 1.6s ease-in-out infinite; }
+.maskot.melambai .mk-sirip { transform-origin: 126px 134px; animation: lambai 1.6s ease-in-out infinite; }
 .mk-sinyal { animation: sinyal 1.8s ease-in-out infinite; }
 .mk-sinyal2 { animation-delay: 0.3s; }
 @keyframes lambai { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-22deg); } }
@@ -945,7 +945,7 @@ input[type='range'] { accent-color: var(--oranye); width: 100%; }
 
 
 /* =====================================================================
-   Chatbot Remote Control Si Nila (Kontrol Pemilik dari Luar)
+   Chatbot Remote Control Si Aqua (Kontrol Pemilik dari Luar)
    ===================================================================== */
 .bot-wrap {
   position: fixed; right: 16px; bottom: 16px; z-index: 1500;
@@ -1168,4 +1168,216 @@ input[type='range'] { accent-color: var(--oranye); width: 100%; }
   scrollbar-width: thin;
   scrollbar-color: rgb(33 151 159 / 45%) transparent;
   scroll-behavior: smooth;
+}
+
+
+/* =============================================================
+   Pemilih Mode Komoditas & Jeda Booting 30 Detik + Skip
+   ============================================================= */
+.komoditas-grup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--garis);
+  border-radius: 11px;
+  padding: 3px 6px 3px 9px;
+}
+.komoditas-grup .nav-grup-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+}
+.komoditas-select {
+  border: 1px solid var(--garis);
+  background: var(--surface);
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 12.5px;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.komoditas-select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.komoditas-badge-boot {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--navy);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Banner / Overlay Booting Patokan Komoditas Baru */
+.boot-overlay {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2600;
+  width: min(620px, calc(100vw - 24px));
+  background: rgb(255 255 255 / 96%);
+  backdrop-filter: blur(12px);
+  border: 2px solid var(--navy);
+  border-radius: 18px;
+  padding: 14px 18px;
+  box-shadow: 0 20px 54px rgb(14 117 187 / 28%);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  animation: lembarNaik 0.24s var(--ease);
+}
+.boot-kepala {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.boot-judul-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.boot-alis {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--teal);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.boot-spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgb(0 150 155 / 28%);
+  border-top-color: var(--teal);
+  display: inline-block;
+  animation: bootPutar 0.8s linear infinite;
+}
+@keyframes bootPutar { to { transform: rotate(360deg); } }
+.boot-judul-wrap strong {
+  font-size: 15.5px;
+  color: var(--navy);
+}
+.boot-waktu-aksi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.boot-countdown {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--navy);
+  background: #e6f4fb;
+  border: 1px solid rgb(14 117 187 / 25%);
+  padding: 5px 10px;
+  border-radius: 10px;
+  min-width: 68px;
+  text-align: center;
+}
+.boot-skip {
+  border: 0;
+  background: linear-gradient(135deg, var(--oranye), #e0531f);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12.5px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(226 109 44 / 35%);
+  transition: transform 0.16s var(--ease), filter 0.16s var(--ease);
+}
+.boot-skip:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+.boot-progres-jalur {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2eef5;
+  overflow: hidden;
+}
+.boot-progres-isi {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--navy), var(--teal));
+  transition: width 0.12s linear;
+}
+.boot-detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.boot-tahan {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 5px 9px;
+}
+
+/* Kartu ringkasan profil komoditas aktif pada panel */
+.profil-aktif-box {
+  background: linear-gradient(135deg, #f0f9ff, #ecfeff);
+  border: 1px solid rgb(14 117 187 / 24%);
+  border-radius: 13px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.profil-aktif-atas {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.profil-aktif-atas strong {
+  font-size: 13px;
+  color: var(--navy);
+}
+.profil-aktif-atas span {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--teal);
+  background: #ffffff;
+  border: 1px solid rgb(0 150 155 / 26%);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.profil-aktif-param {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.profil-aktif-param code {
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid var(--garis);
+  color: var(--navy);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.nd-status-banner.st-booting {
+  border-color: #0E75BB;
+  background: linear-gradient(135deg, #eff8ff, #e6f4fb);
 }

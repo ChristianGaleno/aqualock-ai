@@ -57,7 +57,7 @@ export function AlurFsm({ k, sim }) {
           <p className="catatan">Siklus ke-{f.siklus} · Pemicu: {f.alasan}</p>
         </>
       ) : (
-        <p className="catatan">Semua parameter aman. Auto-feeder mengikuti jadwal 07.00 · 12.00 · 17.00 dengan porsi dari AI.</p>
+        <p className="catatan">Semua parameter aman untuk {sim.komoditas.nama.toLowerCase()}. Auto-feeder mengikuti jadwal 07.00 · 12.00 · 17.00 dengan porsi dari AI.</p>
       )}
     </section>
   );
@@ -80,7 +80,7 @@ export function PanelAI({ k }) {
         <div><dt>Prediksi pH +30 mnt</dt><dd className="angka-mono">{angka(ai.phPred, 2)}</dd></div>
         <div><dt>pH_delta 30 mnt</dt><dd className="angka-mono">{ai.phDelta >= 0 ? '+' : ''}{angka(ai.phDelta, 2)}</dd></div>
         <div><dt>Tren pH</dt><dd className={ai.anomali !== 'POLA_HARIAN' ? 'teks-serius' : ''}>{NAMA_TREN[ai.anomali]}</dd></div>
-        <div><dt>NH3 sebenarnya <small>(hanya simulator)</small></dt><dd className="angka-mono">{angka(k.nh3, 3)} mg/L</dd></div>
+        <div><dt>NH3 sebenarnya <small>(asumsi simulator)</small></dt><dd className="angka-mono">{angka(k.nh3, 3)} mg/L</dd></div>
       </dl>
       <p className="vektor" title="[ph, tds, suhu, ph_delta, jam, pakan_6j]">x = [{ai.fitur?.length ? ai.fitur.map((v, i) => angka(v, i === 1 ? 0 : 2)).join(', ') : '…'}]</p>
       {ai.dataDatar && (
@@ -163,12 +163,13 @@ function ambilData(riwayat, jamJendela) {
 
 export default function DetailKolam({ k, sim }) {
   const [jendela, setJendela] = useState(6);
+  const A = sim.ambang || AMBANG;
   const tAkhir = k.riwayat.length ? k.riwayat[k.riwayat.length - 1].t : 0;
   const data = useMemo(() => ambilData(k.riwayat, jendela), [k.id, tAkhir, jendela, k.riwayat]);
   return (
     <div className="detail">
       <div className="detail-kepala">
-        <h2>{k.nama} <small>· esp32-k{k.id} · {angka(k.V0)} L · {k.ikan.jumlah.toLocaleString('id-ID')} ekor</small></h2>
+        <h2>{k.nama} <small>· esp32-k{k.id} · {angka(k.V0)} L · {k.ikan.jumlah.toLocaleString('id-ID')} ekor {sim.komoditas.nama.toLowerCase()} (simulasi)</small></h2>
       </div>
       <div className="detail-grid">
         <AlurFsm k={k} sim={sim} />
@@ -186,14 +187,14 @@ export default function DetailKolam({ k, sim }) {
       </div>
       <p className="catatan">Latar merah = CLEANING, oranye = PH_RECOVERY (kunci pakan aktif). Data tercatat tiap 1 menit{data.length ? `, terakhir ${jamMenit(tAkhir)}` : ''}.</p>
       <div className="grafik-grid">
-        <TrendChart judul="pH" data={data} kunci="ph" desimal={2} domain={[5.5, 9]} ticks={[6, 7, 8, 9]} pita={[AMBANG.PH_MIN, AMBANG.PH_MAX]}
-          batas={[{ y: AMBANG.PH_MIN, warna: 'var(--serius)', label: '6,5' }, { y: AMBANG.PH_MAX, warna: 'var(--serius)', label: '8,2' }]} />
-        <TrendChart judul="TDS" data={data} kunci="tds" satuan="ppm" domain={[200, 800]} ticks={[200, 400, 600, 800]}
-          batas={[{ y: AMBANG.TDS_MAX, warna: 'var(--kritis)', label: '600 ppm' }]} />
+        <TrendChart judul="pH" data={data} kunci="ph" desimal={2} domain={[5.5, 9]} ticks={[6, 7, 8, 9]} pita={[A.PH_MIN, A.PH_MAX]}
+          batas={[{ y: A.PH_MIN, warna: 'var(--serius)', label: angka(A.PH_MIN, 1) }, { y: A.PH_MAX, warna: 'var(--serius)', label: angka(A.PH_MAX, 1) }]} />
+        <TrendChart judul="TDS" data={data} kunci="tds" satuan="ppm" domain={[200, 850]} ticks={[200, 400, 600, 800]}
+          batas={[{ y: A.TDS_MAX, warna: 'var(--kritis)', label: `${A.TDS_MAX} ppm` }]} />
         <TrendChart judul="Suhu air" data={data} kunci="suhu" satuan="°C" desimal={1} domain={[20, 33]} ticks={[20, 24, 28, 32]}
-          batas={[{ y: AMBANG.SUHU_DINGIN, warna: 'var(--peringatan)', label: '24 °C' }]} />
+          batas={[{ y: A.SUHU_DINGIN, warna: 'var(--peringatan)', label: `${A.SUHU_DINGIN} °C` }]} />
         <TrendChart judul="Risiko NH3 (AI)" data={data} kunci="risiko" desimal={2} domain={[0, 1]} ticks={[0, 0.5, 1]}
-          batas={[{ y: AMBANG.RISIKO_KURANG, warna: 'var(--peringatan)', label: '0,40' }, { y: AMBANG.RISIKO_LOCK, warna: 'var(--kritis)', label: '0,70' }]} />
+          batas={[{ y: A.RISIKO_KURANG, warna: 'var(--peringatan)', label: angka(A.RISIKO_KURANG, 2) }, { y: A.RISIKO_LOCK, warna: 'var(--kritis)', label: angka(A.RISIKO_LOCK, 2) }]} />
       </div>
     </div>
   );

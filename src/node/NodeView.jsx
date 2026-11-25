@@ -69,7 +69,7 @@ function Penggerak({ fwRef, kameraTujuan, onSelesaiKamera, onTickUi, onEvent }) 
     jamUi.current += d;
     if (jamUi.current >= 0.16) {
       jamUi.current = 0;
-      const sidik = `${fw.loopKe}|${fw.mosfet}|${fw.servoBuka}|${fw.buzzer}|${fw.pocL.toFixed(0)}|${fw.baca.distCm.toFixed(1)}|${fw.baca.ph.toFixed(2)}`;
+      const sidik = `${fw.loopKe}|${fw.state}|${fw.komoditas.id}|${fw.booting ? Math.ceil(fw.booting.sisaDtk) : 0}|${fw.mosfet}|${fw.servoBuka}|${fw.buzzer}|${fw.pocL.toFixed(0)}|${fw.baca.distCm.toFixed(1)}|${fw.baca.ph.toFixed(2)}`;
       if (sidik !== sidikTerakhir.current) {
         sidikTerakhir.current = sidik;
         onTickUi();
@@ -174,7 +174,7 @@ const PRESET_KAMERA_KOLAM = [
   { id: 'dosing', label: 'Dosing pH' },
 ];
 
-export default function NodeView({ mode, onGantiMode, sembunyiLabel = false, apiRef, fwRef: fwRefProp }) {
+export default function NodeView({ mode, onGantiMode, sembunyiLabel = false, apiRef, fwRef: fwRefProp, booting = null, onSkipBooting }) {
   const internalFwRef = useRef(null);
   const fwRef = fwRefProp || internalFwRef;
   if (!fwRef.current) {
@@ -280,7 +280,7 @@ export default function NodeView({ mode, onGantiMode, sembunyiLabel = false, api
     else fokusKamera('overview', 'skematik');
   }, [fokusKamera]);
 
-  // Ekspos API kontrol langsung agar Chatbot Si Nila bisa menyetting node secara real-time
+  // Ekspos API kontrol langsung agar Chatbot Si Aqua bisa menyetting node secara real-time
   useEffect(() => {
     if (!apiRef) return;
     const status = () => {
@@ -449,12 +449,16 @@ export default function NodeView({ mode, onGantiMode, sembunyiLabel = false, api
             <div>
               <strong>
                 {notif.jenis === 'FEED_BLOCKED'
-                  ? `SAFETY INTERLOCK AKTIF — Pakan Ditolak (${notif.state})`
+                  ? notif.state === 'BOOTING'
+                    ? 'BOOTING PATOKAN BARU — Pakan Ditahan'
+                    : `SAFETY INTERLOCK AKTIF — Pakan Ditolak (${notif.state})`
                   : `Pakan Diberikan — Servo 90° (Porsi ${notif.portion}%)`}
               </strong>
               <p>
                 {notif.jenis === 'FEED_BLOCKED'
-                  ? 'Servo dikunci di 0°, LED LOCK menyala, dan buzzer berbunyi 1200 Hz (300 ms) untuk mencegah penumpukan amonia.'
+                  ? notif.state === 'BOOTING'
+                    ? 'Eksekusi pakan ditahan selama proses booting 30 detik. Tunggu hingga selesai atau tekan tombol Skip Booting.'
+                    : `Servo dikunci di 0°, LED LOCK menyala, dan buzzer berbunyi 1200 Hz (300 ms) untuk mencegah overfeeding & penumpukan amonia di dasar kolam ${fw.komoditas.nama.toLowerCase()}.`
                   : `Katup corong pakan terbuka selama ${notif.portion === 100 ? '1,2 detik' : '0,6 detik'} lalu kembali ke 0°.`}
               </p>
               <code>
@@ -497,6 +501,8 @@ export default function NodeView({ mode, onGantiMode, sembunyiLabel = false, api
         onReset={() => { fw.reset(); fw.maju(0.1); setNotif(null); segarkan(); }}
         suara={suara}
         setSuara={setSuara}
+        booting={booting}
+        onSkipBooting={onSkipBooting}
       />
     </div>
   );

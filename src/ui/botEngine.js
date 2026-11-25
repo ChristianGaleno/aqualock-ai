@@ -21,40 +21,71 @@ const nomorKolam = (teks, bawaan = 1) => {
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
+
 export const SARAN_NODE = [
   'Cek status kolam',
-  'Mode pergi (jaga otomatis)',
+  'Mode lele',
+  'Mode udang',
+  'Skip booting',
   'Beri pakan sekarang',
   'Kuras kolam ke POC',
-  'Dosing pH-Up (pH 5.7)',
   'Normalisasi kolam',
-  'Kosongkan tangki POC',
   'Buka X-Ray wiring',
 ];
 
 export const SARAN_KLASTER = [
   'Cek status 4 kolam',
-  'Mode pergi (jaga otomatis)',
+  'Mode nila',
+  'Mode udang',
+  'Skip booting',
   'Beri pakan kolam 1',
-  'Set ikan 2200 ekor',
-  'Set rasio pakan 3%',
+  'Set tebar 2200 ekor',
   'Kosongkan tangki POC',
-  'Simulasi hujan',
   'Timelapse 24 jam',
 ];
 
 export function prosesPerintahBot(masukan, ctx) {
   const asli = masukan.trim();
   const q = asli.toLowerCase();
-  const { ruang, node, klaster, aksiUi } = ctx;
+  const { ruang, node, klaster, aksiUi, profil, booting, gantiKomoditas, skipBooting } = ctx;
   const modeNode = ruang !== 'klaster';
+  const namaKom = profil?.nama || 'Udang';
+  const ambang = profil?.ambang || { PH_MIN: 7.0, PH_MAX: 8.5, TDS_MAX: 600, SUHU_DINGIN: 26 };
+
+  // -------- 0. Ganti Mode Komoditas & Skip Booting --------
+  if (/(skip|lewati|percepat).*(boot|booting|tunggu|muat)/.test(q) || q === 'skip') {
+    if (!booting) {
+      return { teks: `Saat ini tidak ada proses booting. Mode **${namaKom}** sudah aktif.`, aksi: null };
+    }
+    skipBooting?.();
+    return {
+      teks: '⚡ **Booting dilewati (Skip Booting)!** Patokan komoditas baru langsung aktif sekarang dan keputusan pakan kembali siap.',
+      aksi: '✓ Skip Booting → Aktif',
+      nada: 'ok',
+    };
+  }
+  const mKom = q.match(/(?:mode|ganti|pilih|ubah|pakai|komoditas)\s*(?:ke\s*)?(udang|nila|lele|patin)\b/)
+    || q.match(/^(udang|nila|lele|patin)$/);
+  if (mKom && gantiKomoditas) {
+    const id = mKom[1];
+    if (!booting && profil?.id === id) {
+      return { teks: `Mode **${namaKom}** sudah aktif sekarang.`, aksi: `ℹ Mode ${namaKom}` };
+    }
+    gantiKomoditas(id);
+    const label = id.charAt(0).toUpperCase() + id.slice(1);
+    return {
+      teks: `🔄 Memulai **booting patokan mode ${label} (30 detik)**… Selama booting, keputusan pakan & aktuator ditahan sementara. Ketik **"skip booting"** atau klik tombol **Skip Booting** di layar untuk langsung mengaktifkannya.`,
+      aksi: `⏳ Booting ${label} (30 dtk)`,
+      nada: 'blok',
+    };
+  }
 
   // -------- 1. Bantuan / Menu --------
   if (/^(help|bantuan|menu|perintah|bisa apa|halo|hai|hi|pagi|siang|sore|malam)\b/.test(q) && q.length < 35) {
     return {
       teks: modeNode
-        ? 'Halo! Aku **Si Nila Bot** 🐟. Saat kamu di luar, cukup ketik perintah untuk langsung menyetting kolam:\n• "cek status kolam" / "mode pergi"\n• "beri pakan sekarang"\n• "set pH 5.8" / "set TDS 750" / "set suhu 23"\n• "kuras kolam ke POC" / "isi air bersih" / "normalisasi"\n• "kosongkan tangki POC" / "buka X-Ray" / "buka skematik"'
-        : 'Halo! Aku **Si Nila Bot** 🐟. Saat kamu di luar, aku bisa langsung atur klaster 4 kolam:\n• "cek status 4 kolam" / "cek kolam 2" / "mode pergi"\n• "beri pakan kolam 1" / "set ikan 2200" / "set pakan 3%"\n• "kosongkan tangki POC" / "ganti tangki drum 200"\n• "simulasi hujan" / "timelapse 24 jam" / "jeda" / "lanjut"',
+        ? `Halo! Aku **Si Aqua Bot** (maskot hybrid: muka lele berkumis, badan udang, buntut ikan). Mode aktif: **${namaKom}** ${profil?.ikon || ''}.\n• "mode udang" / "mode nila" / "mode lele" / "mode patin" / "skip booting"\n• "cek status kolam" / "mode pergi" / "beri pakan sekarang"\n• "set pH 6.2" / "set TDS 750" / "set suhu 23" / "normalisasi"\n• "kuras kolam ke POC" / "kosongkan tangki POC" / "buka X-Ray"`
+        : `Halo! Aku **Si Aqua Bot** (maskot hybrid: muka lele berkumis, badan udang, buntut ikan). Mode aktif: **${namaKom}** ${profil?.ikon || ''}.\n• "mode udang" / "mode nila" / "mode lele" / "mode patin" / "skip booting"\n• "cek status 4 kolam" / "cek kolam 2" / "mode pergi"\n• "beri pakan kolam 1" / "set tebar 2200" / "set pakan 3%"\n• "kosongkan tangki POC" / "simulasi hujan" / "timelapse 24 jam"`,
       aksi: null,
     };
   }
@@ -68,7 +99,7 @@ export function prosesPerintahBot(masukan, ctx) {
   if (/(buka|lihat|tampilkan|pindah).*(klaster|4 kolam|empat kolam)/.test(q)) {
     aksiUi.setLembar(null);
     aksiUi.setRuang('klaster');
-    return { teks: 'Tampilan dipindahkan ke **Klaster 4 Kolam**. Sekarang kamu bisa pantau keempat kolam ikan nila sekaligus.', aksi: '✓ Tampilan → Klaster 4 Kolam' };
+    return { teks: `Tampilan dipindahkan ke **Klaster 4 Kolam** (mode **${namaKom}**).`, aksi: '✓ Tampilan → Klaster 4 Kolam' };
   }
   if (/(buka|lihat|tampilkan|pindah).*(kolam 3d|digital twin)/.test(q)) {
     aksiUi.setLembar(null);
@@ -106,7 +137,7 @@ export function prosesPerintahBot(masukan, ctx) {
     }
     klaster.setJalan(true);
     const r = klaster.ringkasan();
-    const peringatan = r.terkunci > 0 ? `Ada ${r.terkunci} kolam sedang dikunci otomatis oleh Safety Interlock.` : 'Semua 4 kolam ikan nila dalam kondisi aman.';
+    const peringatan = r.terkunci > 0 ? `Ada ${r.terkunci} kolam sedang dikunci otomatis oleh Safety Interlock.` : `Semua 4 kolam ${namaKom.toLowerCase()} dalam kondisi aman.`;
     return {
       teks: `**Mode Jaga Otomatis Klaster aktif!** Simulasi & pengawas AI tetap berjalan saat kamu di luar:\n• ${peringatan}\n• Risiko NH₃ tertinggi: **${r.risikoMaks.toFixed(2)}** (Kolam ${r.kolamRisiko})\n• Tangki POC: **${Math.round(r.pocIsi)} / ${r.pocKap} L** (${r.pocPersen}%).`,
       aksi: '✓ Auto-Guard Klaster → AKTIF',
@@ -141,17 +172,24 @@ export function prosesPerintahBot(masukan, ctx) {
 
   // -------- 5. Beri Pakan / Manual Feed Jarak Jauh --------
   if (/(kasih makan|beri pakan|pakan manual|trigger feed|\bfeed\b|tebar pakan)/.test(q) && !/rasio|harian|%/.test(q)) {
+    if (booting) {
+      return {
+        teks: `⏳ **Keputusan pakan DITAHAN sementara!** Sistem sedang booting patokan mode baru (**sisa ${Math.ceil(booting.sisaDtk)} dtk**). Tunggu hingga selesai atau ketik *"skip booting"*.`,
+        aksi: `⏳ Ditahan · Booting ${Math.ceil(booting.sisaDtk)}s`,
+        nada: 'blok',
+      };
+    }
     if (modeNode && node) {
       const ev = node.tekanFeed();
       if (ev?.jenis === 'FEED_BLOCKED') {
         return {
-          teks: `🔒 **Pakan DITOLAK oleh Safety Interlock!**\nState saat ini **${ev.state}**. Servo tetap dikunci di 0° dan buzzer 1200 Hz berbunyi agar ikan nila tidak keracunan amonia. Ketik *"normalisasi kolam"* atau tunggu recovery selesai.`,
+          teks: `🔒 **Pakan DITOLAK oleh Safety Interlock!**\nState saat ini **${ev.state}**. Servo tetap dikunci di 0° dan buzzer 1200 Hz berbunyi agar sisa pakan tidak menumpuk di dasar dan ${namaKom.toLowerCase()} tidak keracunan amonia. Ketik *"normalisasi kolam"* atau tunggu recovery selesai.`,
           aksi: `🔒 FEED_BLOCKED (${ev.state})`,
           nada: 'blok',
         };
       }
       return {
-        teks: `✅ **Pakan berhasil diberikan dari jarak jauh!**\nServo membuka katup 90° dengan porsi **${ev?.portion ?? 100}%** (${(ev?.portion ?? 100) === 100 ? '1,2 detik' : '0,6 detik'}) untuk ikan nila.`,
+        teks: `✅ **Pakan berhasil diberikan dari jarak jauh!**\nServo membuka katup 90° dengan porsi **${ev?.portion ?? 100}%** (${(ev?.portion ?? 100) === 100 ? '1,2 detik' : '0,6 detik'}) untuk ${namaKom.toLowerCase()} tanpa overfeeding.`,
         aksi: `✓ FEED_OK (Porsi ${ev?.portion ?? 100}%)`,
         nada: 'ok',
       };
@@ -172,15 +210,15 @@ export function prosesPerintahBot(masukan, ctx) {
     };
   }
 
-  // -------- 6. Pengaturan Klaster: Jumlah Ikan & Rasio Pakan --------
-  if (/(set|atur|ubah|ganti).*(ikan|ekor|padat|tebar)/.test(q) || /\b(\d{3,4})\s*ekor\b/.test(q)) {
+  // -------- 6. Pengaturan Klaster: Jumlah Tebar & Rasio Pakan --------
+  if (/(set|atur|ubah|ganti).*(udang|nila|lele|patin|ikan|ekor|padat|tebar)/.test(q) || /\b(\d{3,4})\s*ekor\b/.test(q)) {
     const n = angkaDalam(q, /(\d{3,4})/);
     if (n !== null) {
       const val = Math.round(clamp(n, 1000, 3000) / 100) * 100;
       klaster.aturIkan(val);
       return {
-        teks: `Kepadatan ikan nila di klaster diatur ke **${val.toLocaleString('id-ID')} ekor/kolam**. Perhitungan biomassa dan risiko amonia langsung menyesuaikan.`,
-        aksi: `✓ Ikan → ${val.toLocaleString('id-ID')} ekor/kolam`,
+        teks: `Padat tebar ${namaKom.toLowerCase()} (asumsi simulasi) di klaster diatur ke **${val.toLocaleString('id-ID')} ekor/kolam**. Perhitungan biomassa dan risiko amonia langsung menyesuaikan.`,
+        aksi: `✓ ${namaKom} → ${val.toLocaleString('id-ID')} ekor/kolam`,
       };
     }
   }
@@ -206,10 +244,10 @@ export function prosesPerintahBot(masukan, ctx) {
       ? node?.terapkanPreset({ ph: v, tdsRaw: 380, temp: 28, distCm: 30 })
       : node?.setParam('ph', v);
     const ket = st?.state === 'CLEANING'
-      ? 'Catatan: TDS masih > 600 ppm sehingga state tetap CLEANING (prioritas di sketch.ino).'
-      : v < 6.5 ? 'Relay **pH-Up** aktif meneteskan larutan basa & pakan dikunci.'
-      : v > 8.2 ? 'Relay **pH-Down** aktif meneteskan larutan asam & pakan dikunci.'
-      : 'pH berada di rentang aman (6,5–8,2).';
+      ? `Catatan: TDS masih > ${ambang.TDS_MAX} ppm sehingga state tetap CLEANING.`
+      : v < ambang.PH_MIN ? 'Relay **pH-Up** aktif meneteskan larutan basa & pakan dikunci.'
+      : v > ambang.PH_MAX ? 'Relay **pH-Down** aktif meneteskan larutan asam & pakan dikunci.'
+      : `pH berada di rentang aman simulasi ${namaKom} (${ambang.PH_MIN}–${ambang.PH_MAX}).`;
     return {
       teks: `pH kolam diatur ke **${v.toFixed(2)}**. State FSM: **${st?.state ?? 'NORMAL'}**. ${ket}`,
       aksi: `✓ pH → ${v.toFixed(2)} (${st?.state ?? ''})`,
@@ -231,7 +269,7 @@ export function prosesPerintahBot(masukan, ctx) {
     if (!modeNode) aksiUi.setRuang('kolam');
     const st = node?.setParam('temp', v);
     return {
-      teks: `Suhu air diatur ke **${v.toFixed(1)} °C**. ${v < 24 ? 'Karena < 24 °C, porsi pakan otomatis diturunkan ke **50%**.' : 'Suhu optimal untuk ikan nila.'}`,
+      teks: `Suhu air diatur ke **${v.toFixed(1)} °C**. ${v < ambang.SUHU_DINGIN ? `Karena < ${ambang.SUHU_DINGIN} °C (ambang simulasi ${namaKom}), metabolisme melambat sehingga porsi pakan otomatis diturunkan ke **50%**.` : `Suhu berada pada rentang optimal simulasi untuk ${namaKom.toLowerCase()}.`}`,
       aksi: `✓ Suhu → ${v.toFixed(1)} °C · Porsi ${st?.feedPortion}%`,
     };
   }
@@ -259,9 +297,10 @@ export function prosesPerintahBot(masukan, ctx) {
   // -------- 8. Perintah Cepat Aktuator / State --------
   if (/(kuras|cleaning|drain|bersihkan kolam|buang lumpur)/.test(q)) {
     if (modeNode && node) {
-      node.terapkanPreset({ ph: 7.2, tdsRaw: 800, temp: 28, distCm: 25 });
+      const pr = profil?.presetNormal || { ph: 7.7, temp: 28.5 };
+      node.terapkanPreset({ ph: pr.ph, tdsRaw: ambang.TDS_MAX + 180, temp: pr.temp, distCm: 25 });
       return {
-        teks: 'State **CLEANING** diaktifkan! **Relay Drain (GPIO26)** menyala — lumpur dasar dialirkan ke IBC Tank Limbah POC sampai jarak air 45 cm, dan **Safety Interlock** mengunci pakan.',
+        teks: `State **CLEANING** diaktifkan (patokan ${namaKom}: TDS > ${ambang.TDS_MAX} ppm)! **Relay Drain (GPIO26)** menyala — lumpur dasar dialirkan ke IBC Tank Limbah POC sampai jarak air 45 cm, dan **Safety Interlock** mengunci pakan.`,
         aksi: '✓ CLEANING · Relay Drain ON',
         nada: 'blok',
       };
@@ -276,7 +315,8 @@ export function prosesPerintahBot(masukan, ctx) {
   }
   if (/(isi air|inlet|tambah air|refill)/.test(q)) {
     if (!modeNode) aksiUi.setRuang('kolam');
-    node?.terapkanPreset({ ph: 7.2, tdsRaw: 760, temp: 28, distCm: 52 });
+    const pr = profil?.presetNormal || { ph: 7.7, temp: 28.5 };
+    node?.terapkanPreset({ ph: pr.ph, tdsRaw: ambang.TDS_MAX + 150, temp: pr.temp, distCm: 52 });
     return {
       teks: 'Mode pengisian ulang (**Relay Inlet GPIO27**) diaktifkan! Air bersih dari tandon masuk untuk mengencerkan TDS kolam.',
       aksi: '✓ CLEANING · Relay Inlet ON',
@@ -284,26 +324,29 @@ export function prosesPerintahBot(masukan, ctx) {
   }
   if (/(naikkan ph|ph.?up|dosing basa|air asam)/.test(q)) {
     if (!modeNode) aksiUi.setRuang('kolam');
-    node?.terapkanPreset({ ph: 5.7, tdsRaw: 380, temp: 28, distCm: 30 });
+    const phAsam = +(ambang.PH_MIN - 0.8).toFixed(1);
+    node?.terapkanPreset({ ph: phAsam, tdsRaw: 380, temp: 28, distCm: 30 });
     return {
-      teks: 'State **PH_RECOVERY (pH-Up)** aktif! pH disetel ke **5,70**, **Relay pH-Up (GPIO32)** meneteskan larutan basa, dan pakan dikunci.',
+      teks: `State **PH_RECOVERY (pH-Up)** aktif! pH disetel ke **${phAsam.toFixed(2)}** (di bawah batas ${ambang.PH_MIN}), **Relay pH-Up (GPIO32)** meneteskan larutan basa, dan pakan dikunci.`,
       aksi: '✓ PH_RECOVERY · Relay pH-Up ON',
     };
   }
   if (/(turunkan ph|ph.?down|dosing asam|air basa)/.test(q)) {
     if (!modeNode) aksiUi.setRuang('kolam');
-    node?.terapkanPreset({ ph: 8.8, tdsRaw: 380, temp: 28, distCm: 30 });
+    const phBasa = +(ambang.PH_MAX + 0.6).toFixed(1);
+    node?.terapkanPreset({ ph: phBasa, tdsRaw: 380, temp: 28, distCm: 30 });
     return {
-      teks: 'State **PH_RECOVERY (pH-Down)** aktif! pH disetel ke **8,80**, **Relay pH-Down (GPIO33)** meneteskan larutan asam, dan pakan dikunci.',
+      teks: `State **PH_RECOVERY (pH-Down)** aktif! pH disetel ke **${phBasa.toFixed(2)}** (di atas batas ${ambang.PH_MAX}), **Relay pH-Down (GPIO33)** meneteskan larutan asam, dan pakan dikunci.`,
       aksi: '✓ PH_RECOVERY · Relay pH-Down ON',
     };
   }
   if (/(normalisasi|normal|pulihkan|stabil|optimal)/.test(q)) {
     if (modeNode && node) {
-      node.terapkanPreset({ ph: 7.2, tdsRaw: 360, temp: 28, distCm: 30 });
+      const pr = profil?.presetNormal || { ph: 7.7, tdsRaw: 380, temp: 28.5, distCm: 30 };
+      node.terapkanPreset({ ...pr });
       return {
-        teks: 'Kolam dinormalisasi ke kondisi optimal ikan nila (**pH 7,20 · TDS 340 ppm · Suhu 28 °C · Air 80 cm**). State **NORMAL**, kunci pakan terbuka (100%).',
-        aksi: '✓ State → NORMAL (Optimal)',
+        teks: `Kolam dinormalisasi ke kondisi optimal simulasi **${namaKom}** (**pH ${pr.ph.toFixed(2)} · TDS ${pr.tdsRaw} ppm · Suhu ${pr.temp} °C · Air 80 cm**). State **NORMAL**, kunci pakan terbuka (100%).`,
+        aksi: `✓ State → NORMAL (${namaKom})`,
         nada: 'ok',
       };
     }

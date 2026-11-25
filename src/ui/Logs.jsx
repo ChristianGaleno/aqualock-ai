@@ -41,6 +41,7 @@ const TOPIK_FILTER = [
   ['/cmd', '…/cmd'],
   ['/event', '…/event'],
   ['/status', '…/status (LWT)'],
+  ['/profile', '…/profile'],
 ];
 
 export function AliranMqtt({ sim, jumlah = 14 }) {

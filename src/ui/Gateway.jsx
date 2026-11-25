@@ -9,9 +9,21 @@ const LEBAR = 21; // font 6×8 px pada OLED 128×64 → 21 karakter × 8 baris
 const potong = (s) => s.slice(0, LEBAR).padEnd(LEBAR, ' ');
 
 function barisRingkas(sim, idPilih) {
+  if (sim.booting) {
+    return [
+      'AQUA-LOCK | BOOTING',
+      `Mode: ${sim.booting.targetNama.toUpperCase()}`,
+      `Memuat patokan baru`,
+      `Sisa waktu: ${Math.ceil(sim.booting.sisaDtk)} dtk`,
+      '--------------------',
+      'PAKAN & FSM DITAHAN',
+      'Menunggu booting...',
+      'atau tekan Skip',
+    ].map(potong);
+  }
   const hang = sim.t < sim.master.hangSampai;
   const online = sim.kolam.filter((k) => k.online).length;
-  const baris = [`AQUA-LOCK H${sim.hari} ${jamMenit(sim.t)}`];
+  const baris = [`${sim.komoditas.nama.toUpperCase()} H${sim.hari} ${jamMenit(sim.t)}`];
   for (const k of sim.kolam) {
     let s;
     if (!k.online) s = 'OFFLINE  LOCK';

@@ -3,11 +3,12 @@
 // Tata letak: bar atas → bar simulasi → [adegan 3D | panel bernomor]
 // Logika sistem ada di src/sim/, adegan 3D di src/twin/Scene3D.js.
 // =============================================================
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Simulator } from './sim/engine.js';
+import { DAFTAR_KOMODITAS, DURASI_BOOTING_DTK, KOMODITAS_DEFAULT, ambilProfilKomoditas } from './sim/constants.js';
 import { TwinScene } from './twin/Scene3D.js';
 import Maskot from './twin/Maskot.jsx';
-import { BAGIAN, TUR, TARGET_CARI } from './twin/konten.js';
+import { buatBagian, buatTur, TARGET_CARI } from './twin/konten.js';
 import { Bagian1, Bagian2, Bagian3, Bagian4, Bagian5, Bagian6, Bagian7, Bagian8 } from './twin/Panel.jsx';
 import NodeView from './node/NodeView.jsx';
 import { NodeFirmware } from './node/firmware.js';
@@ -47,21 +48,27 @@ function Logo({ ukuran = 40 }) {
 function Kbd({ children }) { return <kbd>{children}</kbd>; }
 
 export default function App() {
+  const profilAwal = ambilProfilKomoditas(KOMODITAS_DEFAULT);
   const simRef = useRef(null);
   if (!simRef.current) {
-    simRef.current = new Simulator();
-    simRef.current.aturIkan(1800, 0.025);
+    simRef.current = new Simulator({ komoditasId: KOMODITAS_DEFAULT });
   }
   const sim = simRef.current;
 
   const fwRef = useRef(null);
   if (!fwRef.current) {
-    fwRef.current = new NodeFirmware();
+    fwRef.current = new NodeFirmware(KOMODITAS_DEFAULT);
     fwRef.current.maju(0.1);
   }
 
   const [, setVersi] = useState(0);
   const segarkan = useCallback(() => setVersi((v) => v + 1), []);
+  const [komoditasId, setKomoditasId] = useState(KOMODITAS_DEFAULT);
+  const [booting, setBooting] = useState(null); // { targetId, dariId, mulaiMs, totalDtk, sisaDtk }
+  const profil = useMemo(() => ambilProfilKomoditas(komoditasId), [komoditasId]);
+  const daftarBagian = useMemo(() => buatBagian(profil), [profil]);
+  const daftarTur = useMemo(() => buatTur(profil), [profil]);
+
   const [ruang, setRuang] = useState('kolam'); // 'kolam' | 'skematik' | 'klaster'
   const [jalan, setJalan] = useState(true);
   const [kecepatan, setKecepatan] = useState(60);
@@ -76,9 +83,9 @@ export default function App() {
   const [latensi, setLatensi] = useState([]);
   const [suara, setSuara] = useState(true);
   const [cari, setCari] = useState('');
-  const [ikan, setIkan] = useState(1800);
-  const [rasio, setRasio] = useState(2.5);
-  const [pesanMaskot, setPesanMaskot] = useState(BAGIAN[0].teks);
+  const [ikan, setIkan] = useState(profilAwal.tebar.jumlahDefault);
+  const [rasio, setRasio] = useState(+(profilAwal.tebar.rasioPakan * 100).toFixed(1));
+  const [pesanMaskot, setPesanMaskot] = useState(() => buatBagian(profilAwal)[0].teks);
   const [webglGagal, setWebglGagal] = useState(false);
 
   const wadahRef = useRef(null);
@@ -113,6 +120,58 @@ export default function App() {
     }
   });
 
+  // ---------------- Ganti komoditas & jeda booting 30 detik ----------------
+  const selesaikanBooting = useCallback((targetId, dilewati = false) => {
+    const target = ambilProfilKomoditas(targetId);
+    simRef.current.terapkanKomoditas(target.id, dilewati);
+    fwRef.current.terapkanKomoditas(target.id, dilewati);
+    setKomoditasId(target.id);
+    setBooting(null);
+    setIkan(target.tebar.jumlahDefault);
+    setRasio(+(target.tebar.rasioPakan * 100).toFixed(1));
+    setPesanMaskot(
+      `Mode ${target.nama} aktif${dilewati ? ' (Skip Booting)' : ''}! Patokan simulasi: pH ${angka(target.ambang.PH_MIN, 1)}–${angka(target.ambang.PH_MAX, 1)}, TDS maks ${target.ambang.TDS_MAX} ppm, suhu dingin < ${target.ambang.SUHU_DINGIN} °C, pakan ${angka(target.tebar.rasioPakan * 100, 1)}%.`,
+    );
+    segarkan();
+  }, [segarkan]);
+
+  const mulaiGantiKomoditas = useCallback((targetId) => {
+    const target = ambilProfilKomoditas(targetId);
+    if (!booting && target.id === komoditasId) return;
+    if (booting && target.id === booting.targetId) return;
+    const totalDtk = DURASI_BOOTING_DTK;
+    simRef.current.mulaiBooting(target.id, totalDtk);
+    fwRef.current.mulaiBooting(target.id, totalDtk);
+    setBooting({ targetId: target.id, dariId: komoditasId, mulaiMs: Date.now(), totalDtk, sisaDtk: totalDtk });
+    setPesanMaskot(
+      `Booting patokan mode ${target.nama} (${totalDtk} dtk)… Keputusan pakan & aktuator ditahan sementara. Klik "Skip Booting" bila ingin langsung aktif!`,
+    );
+    segarkan();
+  }, [booting, komoditasId, segarkan]);
+
+  const skipBooting = useCallback(() => {
+    if (!booting) return;
+    selesaikanBooting(booting.targetId, true);
+  }, [booting, selesaikanBooting]);
+
+  useEffect(() => {
+    if (!booting) return undefined;
+    const { targetId, mulaiMs, totalDtk } = booting;
+    const id = setInterval(() => {
+      const sisa = Math.max(0, totalDtk - (Date.now() - mulaiMs) / 1000);
+      if (sisa <= 0.05) {
+        clearInterval(id);
+        selesaikanBooting(targetId, false);
+      } else {
+        simRef.current.perbaruiBooting(sisa);
+        fwRef.current.perbaruiBooting(sisa);
+        setBooting((b) => (b && b.mulaiMs === mulaiMs ? { ...b, sisaDtk: sisa } : b));
+        segarkan();
+      }
+    }, 100);
+    return () => clearInterval(id);
+  }, [booting?.mulaiMs, booting?.targetId, booting?.totalDtk, selesaikanBooting, segarkan]);
+
   // ---------------- Adegan 3D ----------------
   const pilihKolam = useCallback((id) => {
     setIdPilih(id);
@@ -121,11 +180,11 @@ export default function App() {
 
   const bukaBagian = useCallback((no, opsi = {}) => {
     setBagian(no);
-    const b = BAGIAN.find((x) => x.no === no);
+    const b = daftarBagian.find((x) => x.no === no);
     if (!opsi.tanpaKamera) adeganRef.current?.fokus(b.kamera);
     if (!opsi.tanpaPesan) setPesanMaskot(b.teks);
     panelRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
+  }, [daftarBagian]);
 
   useEffect(() => {
     if (ruang !== 'klaster' || !wadahRef.current) return undefined;
@@ -136,7 +195,7 @@ export default function App() {
           adeganRef.current?.pilihKolam(id);
           adeganRef.current?.fokus(`kolam${id}`);
           setBagian((b) => (b === 1 || b === 6 ? 2 : b));
-          setPesanMaskot(`Ini Kolam ${id}. Lihat sensor, keputusan AI, dan status kuncinya di panel kanan.`);
+          setPesanMaskot(`Ini Kolam ${id} (mode ${simRef.current.komoditas.nama}). Lihat sensor, keputusan AI, dan status kunci pakannya di panel kanan.`);
         },
         saatBagian: (no) => bukaBagian(no),
       });
@@ -161,7 +220,8 @@ export default function App() {
   const tekanFisik = useCallback((id) => catatHasil(simRef.current.tekanPakanManual(id, 'fisik')), []);
 
   function reset() {
-    simRef.current = new Simulator({ seed: Math.floor(Math.random() * 1e9) });
+    setBooting(null);
+    simRef.current = new Simulator({ seed: Math.floor(Math.random() * 1e9), komoditasId });
     simRef.current.aturIkan(ikan, rasio / 100);
     adeganRef.current?.aturSim(simRef.current);
     setHasilTombol(null);
@@ -183,7 +243,7 @@ export default function App() {
 
   // ---------------- Tur ----------------
   const jalankanLangkah = useCallback((i) => {
-    const l = TUR[i];
+    const l = daftarTur[i];
     setTur(i);
     setTimelapse(null);
     setJalan(true);
@@ -193,19 +253,19 @@ export default function App() {
     setPesanMaskot(l.teks);
     panelRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     l.aksi?.({ sim: simRef.current, pilihKolam, tekanFisik });
-  }, [pilihKolam, tekanFisik]);
+  }, [daftarTur, pilihKolam, tekanFisik]);
 
   function mulaiTur() { setIntro(false); setLembar(null); jalankanLangkah(0); }
-  function hentikanTur() { setTur(null); setKecepatan(60); setPesanMaskot('Tur selesai. Silakan jelajah sendiri: klik kolam atau nomor di layar.'); }
+  function hentikanTur() { setTur(null); setKecepatan(60); setPesanMaskot('Tur selesai. Silakan jelajah sendiri: klik kolam, nomor di layar, atau ganti mode komoditas di atas.'); }
 
   useEffect(() => {
     if (tur === null) return undefined;
     const id = setTimeout(() => {
-      if (tur + 1 < TUR.length) jalankanLangkah(tur + 1);
+      if (tur + 1 < daftarTur.length) jalankanLangkah(tur + 1);
       else hentikanTur();
-    }, TUR[tur].durasi * 1000);
+    }, daftarTur[tur].durasi * 1000);
     return () => clearTimeout(id);
-  }, [tur, jalankanLangkah]);
+  }, [tur, daftarTur, jalankanLangkah]);
 
   // ---------------- Keyboard ----------------
   useEffect(() => {
@@ -219,7 +279,7 @@ export default function App() {
       else if (k === 'l') mulaiTimelapse(24);
       else if (k === 'h') setLabelTampil((v) => !v);
       else if (k === ' ') { e.preventDefault(); setJalan((v) => !v); }
-      else if (tur !== null && k === 'arrowright' && tur + 1 < TUR.length) jalankanLangkah(tur + 1);
+      else if (tur !== null && k === 'arrowright' && tur + 1 < daftarTur.length) jalankanLangkah(tur + 1);
       else if (tur !== null && k === 'arrowleft' && tur > 0) jalankanLangkah(tur - 1);
       else if (/^[1-8]$/.test(k) && !intro) bukaBagian(Number(k));
     };
@@ -247,7 +307,9 @@ export default function App() {
   const risikoMaks = sim.kolam.reduce((m, x) => (x.online && x.ai.risiko > m.r ? { r: x.ai.risiko, id: x.id } : m), { r: 0, id: 1 });
   const dicegah = sim.kembar.reduce((s, x) => s + x.stat.pakanTerbuangKg, 0) - sim.kolam.reduce((s, x) => s + x.stat.pakanTerbuangKg, 0);
   const pocL = sim.kolam.reduce((s, x) => s + x.stat.limbahPocL, 0);
-  const langkahTur = tur !== null ? TUR[tur] : null;
+  const langkahTur = tur !== null ? daftarTur[tur] : null;
+  const targetBoot = booting ? ambilProfilKomoditas(booting.targetId) : null;
+  const progresBoot = booting ? Math.min(100, Math.max(0, ((booting.totalDtk - booting.sisaDtk) / booting.totalDtk) * 100)) : 0;
 
   const propsUmum = { sim, k, onPilih: pilihKolam };
   const statusFw = () => {
@@ -298,6 +360,10 @@ export default function App() {
   };
   const botCtx = {
     ruang,
+    profil,
+    booting,
+    gantiKomoditas: mulaiGantiKomoditas,
+    skipBooting,
     node: botNode,
     aksiUi: { setRuang, setLembar },
     klaster: {
@@ -380,6 +446,22 @@ export default function App() {
             <button className={lembar === 'model' ? 'aktif' : ''} onClick={() => setLembar('model')}>Model AI</button>
             <button className={lembar === 'arsitektur' ? 'aktif' : ''} onClick={() => setLembar('arsitektur')}>Arsitektur &amp; MQTT</button>
           </div>
+          <div className="komoditas-grup" role="group" aria-label="Mode komoditas budidaya">
+            <span className="nav-grup-label">Komoditas</span>
+            <select
+              className="komoditas-select"
+              aria-label="Pilih mode komoditas"
+              value={booting ? booting.targetId : komoditasId}
+              disabled={Boolean(booting)}
+              title={booting ? 'Sedang booting patokan baru — klik Skip Booting untuk langsung aktif' : 'Ganti mode komoditas (memicu jeda booting 30 dtk)'}
+              onChange={(e) => mulaiGantiKomoditas(e.target.value)}
+            >
+              {DAFTAR_KOMODITAS.map((c) => (
+                <option key={c.id} value={c.id}>{c.ikon} {c.label}</option>
+              ))}
+            </select>
+            {booting && <span className="komoditas-badge-boot">{Math.ceil(booting.sisaDtk)}s</span>}
+          </div>
         </nav>
 
         {ruang === 'klaster' ? (
@@ -394,17 +476,44 @@ export default function App() {
               {labelTampil ? 'Bersihkan layar' : 'Tampilkan label'} <Kbd>H</Kbd>
             </button>
             <button className="btn-oranye" onClick={() => (tur === null ? mulaiTur() : hentikanTur())}>
-              {tur === null ? '▶ Tur Si Nila' : '■ Hentikan tur'} <Kbd>T</Kbd>
+              {tur === null ? '▶ Tur Si Aqua' : '■ Hentikan tur'} <Kbd>T</Kbd>
             </button>
             <div className="jam-pil"><span className={`titik ${jalan ? 'titik-baik' : 'titik-mati'}`} />Hari {sim.hari} · {jamMenit(sim.t)}</div>
           </>
         ) : (
           <div className="nd-bar-kanan">
-            <span className="nd-chip-info">ESP32 DevKitC V4 · 25 Part · 58 Koneksi</span>
+            <span className="nd-chip-info">{profil.ikon} Mode {profil.nama} · ESP32 · 25 Part</span>
           </div>
         )}
         <div className="lencana">IDTC 2.0<small>AIoT 2026</small></div>
       </header>
+
+      {/* ---------- Overlay Booting 30 Detik + Skip ---------- */}
+      {booting && targetBoot && (
+        <div className="boot-overlay" role="status" aria-live="polite" aria-label="Booting patokan komoditas baru">
+          <div className="boot-kepala">
+            <div className="boot-judul-wrap">
+              <span className="boot-alis"><i className="boot-spinner" />Booting Patokan Mode Baru</span>
+              <strong>Memuat profil {targetBoot.ikon} {targetBoot.label}…</strong>
+            </div>
+            <div className="boot-waktu-aksi">
+              <span className="boot-countdown">{Math.ceil(booting.sisaDtk)} dtk</span>
+              <button type="button" className="boot-skip" onClick={skipBooting}>
+                Skip Booting →
+              </button>
+            </div>
+          </div>
+          <div className="boot-progres-jalur" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progresBoot)}>
+            <div className="boot-progres-isi" style={{ width: `${progresBoot}%` }} />
+          </div>
+          <div className="boot-detail">
+            <span>Patokan baru (simulasi): pH <b>{angka(targetBoot.ambang.PH_MIN, 1)}–{angka(targetBoot.ambang.PH_MAX, 1)}</b> · TDS maks <b>{targetBoot.ambang.TDS_MAX} ppm</b> · Suhu dingin <b>&lt; {targetBoot.ambang.SUHU_DINGIN} °C</b> · Pakan <b>{angka(targetBoot.tebar.rasioPakan * 100, 1)}%</b></span>
+          </div>
+          <div className="boot-tahan">
+            🔒 Eksekusi keputusan pakan, FSM, dan aktuator ditahan sementara sampai booting selesai (atau tekan <b>Skip Booting</b>).
+          </div>
+        </div>
+      )}
 
       {/* ---------- Mode Node 3D (R3F Kolam + Skematik Wokwi) ---------- */}
       {ruang !== 'klaster' ? (
@@ -414,6 +523,8 @@ export default function App() {
           sembunyiLabel={Boolean(lembar)}
           apiRef={nodeApiRef}
           fwRef={fwRef}
+          booting={booting}
+          onSkipBooting={skipBooting}
         />
       ) : (
         <>
@@ -428,13 +539,13 @@ export default function App() {
                 <button key={c.v} className={kecepatan === c.v ? 'aktif' : ''} onClick={() => { setKecepatan(c.v); setTimelapse(null); }}>{c.label}</button>
               ))}
             </div>
-            <label className="geser">
-              <span>Ikan/kolam</span>
+            <label className="geser" title={`Asumsi simulasi padat tebar ${profil.nama.toLowerCase()} per kolam`}>
+              <span>{profil.nama}/kolam</span>
               <input type="range" min="1000" max="3000" step="100" value={ikan}
                 onChange={(e) => { const v = Number(e.target.value); setIkan(v); sim.aturIkan(v, null); }} />
               <b>{ikan.toLocaleString('id-ID')} ekor</b>
             </label>
-            <label className="geser">
+            <label className="geser" title={`Asumsi simulasi rasio pakan harian terhadap biomassa ${profil.nama.toLowerCase()}`}>
               <span>Pakan harian</span>
               <input type="range" min="1.5" max="4" step="0.1" value={rasio}
                 onChange={(e) => { const v = Number(e.target.value); setRasio(v); sim.aturIkan(null, v / 100); }} />
@@ -471,13 +582,13 @@ export default function App() {
 
               <div className={`pemandu ${langkahTur ? 'tur' : ''}`}>
                 <div className="pemandu-kartu">
-                  <span className="pemandu-nama">{langkahTur ? `${langkahTur.judul} · ${tur + 1}/${TUR.length}` : 'Si Nila'}</span>
+                  <span className="pemandu-nama">{langkahTur ? `${langkahTur.judul} · ${tur + 1}/${daftarTur.length}` : `Si Aqua · Mode ${profil.nama}`}</span>
                   <p>{pesanMaskot}</p>
                   <div className="pemandu-aksi">
                     {langkahTur ? (
                       <>
                         <button className="btn-kecil" disabled={tur === 0} onClick={() => jalankanLangkah(tur - 1)} aria-label="Langkah sebelumnya">◀</button>
-                        <button className="btn-kecil" onClick={() => (tur + 1 < TUR.length ? jalankanLangkah(tur + 1) : hentikanTur())}>{tur + 1 < TUR.length ? 'Lanjut ▶' : 'Selesai'}</button>
+                        <button className="btn-kecil" onClick={() => (tur + 1 < daftarTur.length ? jalankanLangkah(tur + 1) : hentikanTur())}>{tur + 1 < daftarTur.length ? 'Lanjut ▶' : 'Selesai'}</button>
                         <button className="btn-kecil garis" onClick={hentikanTur}>Berhenti</button>
                         <span className="progres-tur"><i key={tur} style={{ animationDuration: `${langkahTur.durasi}s` }} /></span>
                       </>
@@ -490,7 +601,7 @@ export default function App() {
               </div>
 
               <nav className="nav-bawah" aria-label="Bagian">
-                {BAGIAN.map((b) => (
+                {daftarBagian.map((b) => (
                   <button key={b.no} className={bagian === b.no ? 'aktif' : ''} onClick={() => bukaBagian(b.no)}>
                     <span>{b.no}</span>{b.label}
                   </button>
@@ -525,7 +636,7 @@ export default function App() {
               <h1><span className="navy">Aqua-Lock</span><span className="oranye">AI</span></h1>
             </div>
             <h2>Digital Twin</h2>
-            <p className="intro-sub">Safety interlock pakan berbasis AI untuk klaster kolam bioflok: pakan dikunci saat air berbahaya, lumpur dasar jadi pupuk cair.</p>
+            <p className="intro-sub">Safety interlock pakan berbasis AI dengan default komoditas utama <b>Udang</b> (serta opsi mode Nila, Lele &amp; Patin): cegah overfeeding &amp; lonjakan amonia, kuras limbah dasar jadi pupuk cair (POC).</p>
             <div className="intro-tombol">
               <button className="btn-oranye besar" onClick={mulaiTur}>▶ Mulai tur 2 menit <Kbd>T</Kbd></button>
               <button className="btn-putih besar" onClick={() => setIntro(false)}>Jelajahi sendiri <Kbd>Enter</Kbd></button>
@@ -534,12 +645,12 @@ export default function App() {
               <button className="btn-putih" onClick={() => mulaiTimelapse(24)}>Timelapse 24 jam <Kbd>L</Kbd></button>
               <button className="btn-putih" onClick={() => mulaiTimelapse(168)}>Timelapse 7 hari</button>
             </div>
-            <p className="intro-kaki">Tim AQUA-LOCK AI · data simulasi dari model fisika air (Emerson et al., 1975) · bukan data lapangan</p>
+            <p className="intro-kaki">Tim AQUA-LOCK AI · seluruh parameter komoditas &amp; angka kimia air adalah asumsi simulasi (Emerson et al., 1975) · bukan data lapangan</p>
           </div>
           <div className="intro-kanan">
             <div className="intro-gelembung">
-              <b>Halo, aku Si Nila!</b>
-              <p>Ikan nila penjaga kolam. Ayo lihat bagaimana AI menjaga pakan kami tetap aman.</p>
+              <b>Halo, aku Si Aqua!</b>
+              <p>Maskot hybrid berkepala lele berkumis, berbadan udang bersegmen, dan berbuntut ikan. Sekarang kita mulai di mode utama <b>{profil.nama}</b> — yuk lihat cara AI, FSM, Safety Interlock &amp; tangki POC bekerja!</p>
             </div>
             <Maskot ukuran={200} />
           </div>

@@ -12,25 +12,26 @@ export function PilState({ info }) {
   );
 }
 
-export function MeterRisiko({ nilai, offline }) {
+export function MeterRisiko({ nilai, offline, ambang = AMBANG }) {
   const persen = Math.max(0, Math.min(1, nilai)) * 100;
-  const nada = nilai >= AMBANG.RISIKO_LOCK ? 'kritis' : nilai >= AMBANG.RISIKO_KURANG ? 'peringatan' : 'baik';
+  const nada = nilai >= ambang.RISIKO_LOCK ? 'kritis' : nilai >= ambang.RISIKO_KURANG ? 'peringatan' : 'baik';
   return (
     <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={1} aria-valuenow={nilai} aria-label="Risiko toksisitas NH3">
       <div className="meter-jalur">
         <div className={`meter-isi isi-${offline ? 'mati' : nada}`} style={{ width: `${persen}%` }} />
-        <span className="meter-tanda" style={{ left: `${AMBANG.RISIKO_KURANG * 100}%` }} />
-        <span className="meter-tanda" style={{ left: `${AMBANG.RISIKO_LOCK * 100}%` }} />
+        <span className="meter-tanda" style={{ left: `${ambang.RISIKO_KURANG * 100}%` }} />
+        <span className="meter-tanda" style={{ left: `${ambang.RISIKO_LOCK * 100}%` }} />
       </div>
     </div>
   );
 }
 
 export default function PondCard({ k, sim, dipilih, onPilih, onPakan }) {
+  const A = sim.ambang || AMBANG;
   const info = infoState(k, sim);
   const kunci = sim.terkunci(k);
-  const phLuar = k.ukur.ph < AMBANG.PH_MIN || k.ukur.ph > AMBANG.PH_MAX;
-  const tdsTinggi = k.ukur.tds > AMBANG.TDS_MAX;
+  const phLuar = k.ukur.ph < A.PH_MIN || k.ukur.ph > A.PH_MAX;
+  const tdsTinggi = k.ukur.tds > A.TDS_MAX;
   return (
     <article className={`kartu kartu-kolam garis-${info.nada} ${dipilih ? 'dipilih' : ''}`}>
       <button className="kartu-klik" onClick={onPilih} aria-pressed={dipilih}>
@@ -41,14 +42,14 @@ export default function PondCard({ k, sim, dipilih, onPilih, onPakan }) {
         <dl className="metrik4">
           <div className={phLuar ? 'luar' : ''}><dt>pH</dt><dd>{k.online ? angka(k.ukur.ph, 2) : '–'}</dd></div>
           <div className={tdsTinggi ? 'luar' : ''}><dt>TDS</dt><dd>{k.online ? angka(k.ukur.tds) : '–'}<small> ppm</small></dd></div>
-          <div className={k.ukur.suhu < AMBANG.SUHU_DINGIN ? 'luar' : ''}><dt>Suhu</dt><dd>{k.online ? angka(k.ukur.suhu, 1) : '–'}<small> °C</small></dd></div>
+          <div className={k.ukur.suhu < A.SUHU_DINGIN ? 'luar' : ''}><dt>Suhu</dt><dd>{k.online ? angka(k.ukur.suhu, 1) : '–'}<small> °C</small></dd></div>
           <div><dt>Level</dt><dd>{k.online ? angka(k.ukur.levelCm, 0) : '–'}<small> cm</small></dd></div>
         </dl>
         <div className="risiko-baris">
           <span className="label-kecil">Risiko NH3 (AI)</span>
           <strong className="angka-mono">{k.online ? angka(k.ai.risiko, 2) : '–'}</strong>
         </div>
-        <MeterRisiko nilai={k.ai.risiko} offline={!k.online} />
+        <MeterRisiko nilai={k.ai.risiko} offline={!k.online} ambang={A} />
       </button>
       <div className={`baris-kunci ${kunci ? 'terkunci' : 'terbuka'}`}>
         {kunci ? <IkonKunci size={15} /> : <IkonBuka size={15} />}

@@ -26,14 +26,14 @@ export function TangkiPoc({ sim, onKosongkan, onGantiTangki }) {
         </dl>
       </div>
       <button className="tombol" onClick={onKosongkan} disabled={tk.isiL < 1}>Panen POC (kosongkan tangki)</button>
-      <p className="catatan">Satu kali kuras 15% kolam Ø3 m (air 60 cm) ≈ {angka(0.15 * sim.kolam[0].V0)} L. Kuras ditunda jika sisa tangki &lt; {TANGKI_POC.SISA_MIN_L} L.</p>
+      <p className="catatan">Asumsi simulasi: 1× kuras 15% kolam bundar {sim.komoditas.nama.toLowerCase()} Ø3 m (air 60 cm) ≈ {angka(0.15 * sim.kolam[0].V0)} L limbah sisa pakan &amp; lumpur dasar. Kuras ditunda jika sisa tangki &lt; {TANGKI_POC.SISA_MIN_L} L.</p>
     </section>
   );
 }
 
 const SKENARIO = [
   { id: 'hujan', judul: 'Hujan deras', isi: 'pH turun, suhu air turun di semua kolam', semua: true },
-  { id: 'pakanBerlebih', judul: 'Pakan berlebih manual', isi: '3 kg ditabur pekerja tanpa alat → TDS naik' },
+  { id: 'pakanBerlebih', judul: 'Overfeeding manual', isi: '3 kg pakan ditabur tanpa alat → sisa pakan & TDS naik' },
   { id: 'bloom', judul: 'Ledakan alga', isi: 'pH siang naik tajam, NH3 bebas meningkat' },
   { id: 'nodeOffline', judul: 'Node offline (LWT)', isi: 'Wi-Fi node putus, kunci failsafe lokal', toggle: true },
   { id: 'biofouling', judul: 'Probe pH berlumut', isi: 'Sinyal datar & drift → minta kalibrasi' },
@@ -68,11 +68,12 @@ function jumlah(daftar, kunci) {
 }
 
 export function Perbandingan({ sim }) {
+  const A = sim.ambang;
   const baris = [
     { label: 'Pakan diberikan', kunci: 'pakanDiberiKg', satuan: 'kg', d: 1 },
     { label: 'Pakan terbuang (tak termakan)', kunci: 'pakanTerbuangKg', satuan: 'kg', d: 2 },
-    { label: 'Paparan NH3 > 0,05 mg/L', kunci: 'menitNh3Toksik', satuan: 'menit', d: 0 },
-    { label: 'pH di luar 6,5–8,2', kunci: 'menitPhLuar', satuan: 'menit', d: 0 },
+    { label: `Paparan NH3 > ${angka(A.NH3_TOKSIK, 2)} mg/L`, kunci: 'menitNh3Toksik', satuan: 'menit', d: 0 },
+    { label: `pH di luar ${angka(A.PH_MIN, 1)}–${angka(A.PH_MAX, 1)}`, kunci: 'menitPhLuar', satuan: 'menit', d: 0 },
     { label: 'Limbah dibuang ke selokan', kunci: 'limbahSelokanL', satuan: 'L', d: 0 },
     { label: 'Limbah ke tangki POC', kunci: 'limbahPocL', satuan: 'L', d: 0 },
   ];
@@ -107,7 +108,7 @@ export function Perbandingan({ sim }) {
           </tbody>
         </table>
       </div>
-      <p className="catatan">Kolam kembar mengalami cuaca & kejadian yang sama, tetapi memakai timer pakan 3×/hari dan ganti air manual 10% pukul 08.00 yang dibuang ke selokan. Jalankan beberapa skenario untuk melihat selisihnya.</p>
+      <p className="catatan">Hasil simulasi (mode {sim.komoditas.nama}): kolam kembar mengalami cuaca &amp; kejadian yang sama, tetapi memakai timer pakan 3×/hari (rawan overfeeding) dan ganti air manual 10% pukul 08.00 yang dibuang ke selokan. Jalankan beberapa skenario untuk melihat selisihnya.</p>
     </section>
   );
 }

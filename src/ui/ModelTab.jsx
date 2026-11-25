@@ -19,17 +19,19 @@ const SLIDER = [
 
 export default function ModelTab({ sim, idPilih }) {
   const m = MODEL_AI;
+  const A = sim.ambang || AMBANG;
+  const profil = sim.komoditas;
   const k = sim.kolam.find((x) => x.id === idPilih);
   const [x, setX] = useState({ ph: 7.9, tds: 430, suhu: 29.5, ph_delta: 0.05, jam: 14.5, pakan_6j: 0.83 });
   const vektor = [x.ph, x.tds, x.suhu, x.ph_delta, x.jam, x.pakan_6j];
   const risiko = prediksiProba(m, vektor);
-  const porsi = tentukanPorsi(risiko, x.suhu);
+  const porsi = tentukanPorsi(risiko, x.suhu, A);
   const kurva = useMemo(() => {
     const titik = [];
     for (let ph = 6.5; ph <= 9.001; ph += 0.05) titik.push({ ph: +ph.toFixed(2), risiko: prediksiProba(m, [ph, x.tds, x.suhu, x.ph_delta, x.jam, x.pakan_6j]) });
     return titik;
   }, [m, x.tds, x.suhu, x.ph_delta, x.jam, x.pakan_6j]);
-  const dosisContoh = hitungDosis(6.3, 6.2);
+  const dosisContoh = hitungDosis(A.PH_MIN - 0.2, A.PH_MIN - 0.3, A);
 
   if (!m) return <div className="tab-isi"><p>Model belum dilatih. Jalankan <code>npm run dataset</code> lalu <code>npm run train</code>.</p></div>;
   const mt = m.metrik;
@@ -39,8 +41,8 @@ export default function ModelTab({ sim, idPilih }) {
     <div className="tab-isi">
       <div className="baris-atas">
         <div>
-          <h2>Model AI: estimasi risiko toksisitas amonia</h2>
-          <p className="catatan">Pengganti sensor amonia mahal. XGBoost {m.n_pohon} pohon (kedalaman {m.max_depth}) membaca 5 fitur sensor murah + riwayat pakan dari log servo, lalu menebak peluang NH3 bebas &gt; 0,05 mg/L.</p>
+          <h2>Model AI: estimasi risiko toksisitas amonia ({profil.ikon} {profil.nama})</h2>
+          <p className="catatan">Pengganti sensor amonia mahal untuk budidaya {profil.nama.toLowerCase()} (default utama: Udang). XGBoost {m.n_pohon} pohon (kedalaman {m.max_depth}) membaca 5 fitur sensor murah + riwayat pakan dari log servo, lalu menaksir peluang NH3 bebas &gt; {angka(A.NH3_TOKSIK, 2)} mg/L (asumsi ambang bahaya simulasi) agar overfeeding dicegah sejak dini.</p>
         </div>
       </div>
 
@@ -75,8 +77,8 @@ export default function ModelTab({ sim, idPilih }) {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={kurva} margin={{ top: 6, right: 8, bottom: 0, left: -18 }}>
                   <CartesianGrid stroke="var(--grid)" vertical={false} />
-                  <ReferenceLine y={AMBANG.RISIKO_LOCK} stroke="var(--kritis)" label={{ value: '0,70 lockout', position: 'insideTopLeft', fill: 'var(--ink-3)', fontSize: 10 }} />
-                  <ReferenceLine y={AMBANG.RISIKO_KURANG} stroke="var(--peringatan)" label={{ value: '0,40 porsi 50%', position: 'insideTopLeft', fill: 'var(--ink-3)', fontSize: 10 }} />
+                  <ReferenceLine y={A.RISIKO_LOCK} stroke="var(--kritis)" label={{ value: `${angka(A.RISIKO_LOCK, 2)} lockout`, position: 'insideTopLeft', fill: 'var(--ink-3)', fontSize: 10 }} />
+                  <ReferenceLine y={A.RISIKO_KURANG} stroke="var(--peringatan)" label={{ value: `${angka(A.RISIKO_KURANG, 2)} porsi 50%`, position: 'insideTopLeft', fill: 'var(--ink-3)', fontSize: 10 }} />
                   <ReferenceLine x={+x.ph.toFixed(2)} stroke="var(--ink-3)" />
                   <XAxis dataKey="ph" type="number" domain={[6.5, 9]} tick={{ fontSize: 10, fill: 'var(--ink-3)' }} stroke="var(--grid)" />
                   <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: 'var(--ink-3)' }} stroke="var(--grid)" width={46} />
@@ -112,18 +114,18 @@ export default function ModelTab({ sim, idPilih }) {
           </section>
 
           <section className="kartu">
-            <div className="blok-kepala"><h4>Aturan keputusan setelah AI</h4></div>
+            <div className="blok-kepala"><h4>Aturan keputusan aktif ({profil.nama})</h4></div>
             <table className="tabel">
               <tbody>
-                <tr><th scope="row">Risiko ≥ {angka(AMBANG.RISIKO_LOCK, 2)}</th><td><code>LOCKOUT_0%</code> → CLEANING (atau turunkan pH dulu jika pH &gt; {angka(AMBANG.PH_RISIKO_TINGGI, 1)})</td></tr>
-                <tr><th scope="row">Risiko {angka(AMBANG.RISIKO_KURANG, 2)}–0,69 atau suhu &lt; {AMBANG.SUHU_DINGIN} °C</th><td><code>ALLOW_REDUCED_50%</code></td></tr>
+                <tr><th scope="row">Risiko ≥ {angka(A.RISIKO_LOCK, 2)}</th><td><code>LOCKOUT_0%</code> → CLEANING (atau turunkan pH dulu jika pH &gt; {angka(A.PH_RISIKO_TINGGI, 1)})</td></tr>
+                <tr><th scope="row">Risiko {angka(A.RISIKO_KURANG, 2)}–{angka(A.RISIKO_LOCK - 0.01, 2)} atau suhu &lt; {A.SUHU_DINGIN} °C</th><td><code>ALLOW_REDUCED_50%</code></td></tr>
                 <tr><th scope="row">Selain itu</th><td><code>ALLOW_100%</code></td></tr>
-                <tr><th scope="row">TDS &gt; {AMBANG.TDS_MAX} ppm</th><td>CLEANING, kuras ≤ {AKTUATOR.BATAS_KURAS * 100}% volume</td></tr>
-                <tr><th scope="row">pH &lt; {angka(AMBANG.PH_MIN, 1)} atau &gt; {angka(AMBANG.PH_MAX, 1)}</th><td>PH_RECOVERY, keluar saat pH {angka(AMBANG.PH_KELUAR_MIN, 1)}–{angka(AMBANG.PH_KELUAR_MAX, 1)}</td></tr>
+                <tr><th scope="row">TDS &gt; {A.TDS_MAX} ppm</th><td>CLEANING, kuras ≤ {AKTUATOR.BATAS_KURAS * 100}% volume</td></tr>
+                <tr><th scope="row">pH &lt; {angka(A.PH_MIN, 1)} atau &gt; {angka(A.PH_MAX, 1)}</th><td>PH_RECOVERY, keluar saat pH {angka(A.PH_KELUAR_MIN, 1)}–{angka(A.PH_KELUAR_MAX, 1)}</td></tr>
               </tbody>
             </table>
             <p className="rumus">durasi dosing = min({AKTUATOR.DOSING_MAKS_DTK} dtk, |target − pH_acuan| ÷ {angka(AKTUATOR.DOSING_GAIN_PH_PER_DTK, 2)} × 0,8)</p>
-            <p className="catatan">pH_acuan = nilai yang lebih ekstrem antara pH sekarang dan prediksi 30 menit (regresi linear tren). Contoh: pH 6,30 dengan prediksi 6,20 → pompa pH-Up {angka(dosisContoh.durasi, 1)} dtk. Faktor 0,8 mencegah pH shock akibat koreksi berlebih.</p>
+            <p className="catatan">pH_acuan = parameter lebih ekstrem antara pH sekarang dan prediksi 30 menit (regresi linear tren). Contoh: pH {angka(A.PH_MIN - 0.2, 2)} dengan prediksi {angka(A.PH_MIN - 0.3, 2)} → pompa pH-Up {angka(dosisContoh.durasi, 1)} dtk. Faktor 0,8 mencegah pH shock pada {profil.nama.toLowerCase()} akibat koreksi berlebih.</p>
           </section>
 
           <section className="kartu">
@@ -135,7 +137,7 @@ export default function ModelTab({ sim, idPilih }) {
               <li><b>Split waktu</b> 80/20 agar model diuji pada hari yang belum pernah dilihat.</li>
               <li><b>Ekspor</b> pohon ke JSON; inference JS identik dengan Python (selisih &lt; 10⁻⁶).</li>
             </ol>
-            <p className="catatan">Dataset ini sintetis. Sebelum dipakai di kolam mitra, model wajib dilatih ulang dengan data lapangan + uji kit amonia.</p>
+            <p className="catatan">Dataset ini sintetis (berbasis asumsi simulasi budidaya udang &amp; rumus kesetimbangan NH₃). Sebelum dipakai di kolam udang mitra, model wajib dilatih ulang dengan data lapangan + uji kit amonia.</p>
           </section>
         </div>
       </div>

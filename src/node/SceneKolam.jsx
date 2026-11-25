@@ -56,12 +56,12 @@ function Kolam({ fwRef, xray, onPilih }) {
   const permukaan = useRef();
   const cincin = useRef();
   const pusaran = useRef();
-  const ikan = useRef([]);
+  const udang = useRef([]);
   const geoPermukaan = useMemo(() => new THREE.RingGeometry(0.005, R - 0.02, 72, 10), []);
   useEffect(() => () => geoPermukaan.dispose(), [geoPermukaan]);
   const dasar = useMemo(() => Float32Array.from(geoPermukaan.attributes.position.array), [geoPermukaan]);
-  const dataIkan = useMemo(() => Array.from({ length: 9 }, (_, i) => ({
-    r: 0.35 + ((i * 37) % 9) / 9 * 0.85, f: i * 0.7, w: 0.25 + ((i * 13) % 7) / 18, d: 0.15 + ((i * 29) % 10) / 14, arah: i % 3 === 0 ? -1 : 1,
+  const dataUdang = useMemo(() => Array.from({ length: 10 }, (_, i) => ({
+    r: 0.34 + ((i * 37) % 10) / 10 * 0.88, f: i * 0.65, w: 0.22 + ((i * 13) % 7) / 20, d: 0.14 + ((i * 29) % 10) / 20, arah: i % 3 === 0 ? -1 : 1,
   })), []);
   const tiang = useMemo(() => Array.from({ length: 16 }, (_, i) => (i / 16) * Math.PI * 2), []);
 
@@ -96,7 +96,7 @@ function Kolam({ fwRef, xray, onPilih }) {
     pos.needsUpdate = true;
     geoPermukaan.computeVertexNormals();
 
-    _c.set(WARNA_STATE[fw.state]);
+    _c.set(WARNA_STATE[fw.state] || WARNA_STATE.NORMAL);
     warnaCincinRef.current.lerp(_c, dampWarna);
     cincin.current.material.color.copy(warnaCincinRef.current);
     cincin.current.material.emissive.copy(warnaCincinRef.current);
@@ -107,18 +107,18 @@ function Kolam({ fwRef, xray, onPilih }) {
     pusaran.current.rotation.z += dt * 2.6;
 
     const kunci = fw.feedLocked;
-    ikan.current.forEach((g, i) => {
+    udang.current.forEach((g, i) => {
       if (!g) return;
-      const u = dataIkan[i];
+      const u = dataUdang[i];
       u.f += dt * u.w * u.arah * (kunci ? 0.55 : 1);
-      const bob = Math.sin(t * 2.2 + i * 1.3) * 0.018;
+      const bob = Math.sin(t * 2.4 + i * 1.3) * 0.014;
       g.position.set(
         Math.cos(u.f) * u.r,
-        Math.min(h - 0.06, Math.max(0.07, h * u.d + bob)),
+        Math.min(h - 0.06, Math.max(0.06, h * u.d + bob)),
         Math.sin(u.f) * u.r,
       );
       g.rotation.y = -u.f + (u.arah > 0 ? 0 : Math.PI);
-      g.children[1].rotation.y = Math.sin(t * 8 + i) * 0.4;
+      if (g.children[1]) g.children[1].rotation.x = Math.sin(t * 7.5 + i) * 0.28;
       g.visible = h > 0.1;
     });
   });
@@ -169,28 +169,42 @@ function Kolam({ fwRef, xray, onPilih }) {
         <circleGeometry args={[0.09, 24]} />
         <meshStandardMaterial color="#20262b" roughness={0.6} />
       </mesh>
-      {/* Ikan nila merah berenang */}
-      {dataIkan.map((_, i) => {
-        const warnaNila = i % 3 === 0 ? '#eb6834' : i % 3 === 1 ? '#f48647' : '#dc532f';
+      {/* Udang berenang di zona bawah-tengah kolam bundar */}
+      {dataUdang.map((_, i) => {
+        const warnaUdang = i % 3 === 0 ? '#f3865b' : i % 3 === 1 ? '#f8a07a' : '#e56f45';
         return (
-          <group key={i} ref={(el) => { ikan.current[i] = el; }}>
-            {/* Badan oval pipih ikan nila */}
-            <mesh scale={[1.45, 0.85, 0.42]}>
-              <sphereGeometry args={[0.068, 12, 10]} />
-              <meshStandardMaterial color={warnaNila} roughness={0.42} metalness={0.08} />
-            </mesh>
-            {/* Ekor kipas bergoyang (children[1]) */}
-            <group position-x={-0.1}>
-              <mesh rotation-z={Math.PI / 2} scale={[1.1, 1, 0.22]}>
-                <coneGeometry args={[0.048, 0.08, 6]} />
-                <meshStandardMaterial color="#c93e22" roughness={0.5} />
+          <group key={i} ref={(el) => { udang.current[i] = el; }}>
+            {/* Karapas + ruas tubuh udang melengkung menghadap +Z */}
+            <group>
+              <mesh position={[0, 0.004, 0.045]} scale={[0.72, 0.72, 1.35]}>
+                <sphereGeometry args={[0.036, 10, 8]} />
+                <meshStandardMaterial color={warnaUdang} roughness={0.38} metalness={0.08} />
+              </mesh>
+              <mesh position={[0, 0.008, -0.005]} scale={[0.64, 0.66, 1.15]}>
+                <sphereGeometry args={[0.033, 10, 8]} />
+                <meshStandardMaterial color="#ed764a" roughness={0.4} />
+              </mesh>
+              <mesh position={[0, -0.002, -0.052]} rotation-x={0.25} scale={[0.52, 0.54, 1.05]}>
+                <sphereGeometry args={[0.028, 8, 8]} />
+                <meshStandardMaterial color={warnaUdang} roughness={0.42} />
+              </mesh>
+              {/* Sungut udang (2 helai ke depan) */}
+              <mesh position={[-0.016, 0.012, 0.105]} rotation={[Math.PI / 2 - 0.18, 0, 0.24]}>
+                <cylinderGeometry args={[0.0022, 0.001, 0.11, 4]} />
+                <meshStandardMaterial color="#ffd0b8" roughness={0.5} />
+              </mesh>
+              <mesh position={[0.016, 0.012, 0.105]} rotation={[Math.PI / 2 - 0.18, 0, -0.24]}>
+                <cylinderGeometry args={[0.0022, 0.001, 0.11, 4]} />
+                <meshStandardMaterial color="#ffd0b8" roughness={0.5} />
               </mesh>
             </group>
-            {/* Sirip punggung khas ikan nila */}
-            <mesh position={[-0.01, 0.056, 0]} scale={[1.25, 0.45, 0.12]}>
-              <coneGeometry args={[0.055, 0.07, 4]} />
-              <meshStandardMaterial color="#d44326" roughness={0.5} />
-            </mesh>
+            {/* Kipas ekor udang bergoyang (children[1]) */}
+            <group position={[0, -0.014, -0.088]}>
+              <mesh rotation-x={-Math.PI / 2 + 0.3} scale={[1.35, 1, 0.22]}>
+                <coneGeometry args={[0.028, 0.055, 5]} />
+                <meshStandardMaterial color="#c94322" roughness={0.48} />
+              </mesh>
+            </group>
           </group>
         );
       })}
@@ -856,8 +870,8 @@ export default function SceneKolam({ fwRef, xray, label, oledTex, onFeed, onPili
         <Kabel titik={busur(dunia([0, 1.04, 0.0], BOX.pos, BOX.rot), dunia([-0.07, 0.6, 0], RAK.pos, RAK.rot), -0.35, 12)} warna="#30363b" radius={0.014} />
       )}
       {xray && <WiringXray fwRef={fwRef} label={label} />}
-      <Label tampil={label} posisi={[0, DINDING + 0.35, -0.2]} judul="Kolam Bioflok Ø3 m"
-        sub={`air ${fw.levelCm.toFixed(0)} cm · TDS ${fw.baca.tds.toFixed(0)} ppm`} nada={fw.baca.tds > 600 ? 'coklat' : undefined} />
+      <Label tampil={label} posisi={[0, DINDING + 0.35, -0.2]} judul={`Kolam Bundar ${fw.komoditas.nama} Ø3 m`}
+        sub={`air ${fw.levelCm.toFixed(0)} cm · TDS ${fw.baca.tds.toFixed(0)} ppm`} nada={fw.baca.tds > fw.ambang.tds ? 'coklat' : undefined} />
     </group>
   );
 }

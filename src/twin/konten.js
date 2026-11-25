@@ -1,67 +1,86 @@
-// Isi teks bagian 1–8 dan naskah tur 2 menit Si Nila (ikan nila)
-export const BAGIAN = [
-  { no: 1, label: 'Ringkasan', kamera: 'overview', teks: 'Ini klaster 4 kolam bioflok. Klik kolam mana pun atau nomor di layar untuk melihat detailnya.' },
-  { no: 2, label: 'Sensor node', kamera: 'node1', teks: 'Tiap kolam punya Sensor Node ESP32. TDS dibaca dulu, probe-nya dimatikan lewat MOSFET, baru pH dibaca. Begitu caranya mencegah ground loop.' },
-  { no: 3, label: 'AI & porsi', kamera: 'gateway', teks: 'Model XGBoost di Master Gateway menebak risiko amonia tiap 30 detik, tanpa sensor amonia yang mahal.' },
-  { no: 4, label: 'Safety interlock', kamera: 'feeder2', teks: 'Saat air berbahaya, pakan dikunci di tiga tempat: MPU, STM32, dan ESP32. Tombol manual pun ditolak.' },
-  { no: 5, label: 'FSM & aktuator', kamera: 'kolam3', teks: 'Mesin status memutuskan: NORMAL, CLEANING (kuras dasar), atau PH_RECOVERY (pompa pH).' },
-  { no: 6, label: 'Limbah POC', kamera: 'tangki', teks: 'Lumpur dasar tidak dibuang ke selokan. Semuanya masuk tangki untuk diolah jadi pupuk organik cair.' },
-  { no: 7, label: 'Uji & dampak', kamera: 'overview', teks: 'Coba skenario hujan, pakan berlebih, atau node mati. Lalu bandingkan dengan kolam kembar yang memakai cara lama.' },
-  { no: 8, label: 'Kalibrasi', kamera: 'node4', teks: 'Kalibrasi pH dan TDS cukup dengan menekan tombol, tanpa mengedit kode. Hasilnya tersimpan di calibration.json.' },
-];
+// Isi teks bagian 1–8 dan naskah tur 2 menit Si Aqua
+// (maskot hybrid: muka lele berkumis + badan udang bersegmen + buntut ikan)
+// yang beradaptasi otomatis dengan mode komoditas aktif (default: Udang).
+import { KOMODITAS_DEFAULT, ambilProfilKomoditas } from '../sim/constants.js';
+
+const fmt = (v, d = 1) => v.toLocaleString('id-ID', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+export function buatBagian(profil = ambilProfilKomoditas(KOMODITAS_DEFAULT)) {
+  const n = profil.nama;
+  const nl = n.toLowerCase();
+  const A = profil.ambang;
+  return [
+    { no: 1, label: 'Ringkasan', kamera: 'overview', teks: `Halo, aku Si Aqua! Mode aktif: ${n} (${profil.ringkas}, simulasi). Klik kolam mana pun atau ganti komoditas di bilah atas.` },
+    { no: 2, label: 'Sensor node', kamera: 'node1', teks: `Tiap kolam ${nl} punya Sensor Node ESP32. TDS dibaca dulu, probe-nya dimatikan lewat MOSFET, baru pH dibaca agar bebas ground loop.` },
+    { no: 3, label: 'AI & porsi', kamera: 'gateway', teks: `Model XGBoost di Master Gateway menaksir risiko amonia (NH₃) tiap 30 detik dan mengatur porsi pakan ${nl} (lock ≥ ${fmt(A.RISIKO_LOCK, 2)}) agar bebas overfeeding.` },
+    { no: 4, label: 'Safety interlock', kamera: 'feeder2', teks: `Saat air berbahaya bagi ${nl} atau sistem sedang booting mode baru, pakan dikunci di tiga lapis: MPU, STM32, dan ESP32. Tombol manual pun ditolak.` },
+    { no: 5, label: 'FSM & aktuator', kamera: 'kolam3', teks: `FSM pakai patokan ${n} (pH ${fmt(A.PH_MIN)}–${fmt(A.PH_MAX)}, TDS > ${A.TDS_MAX} ppm): NORMAL, CLEANING (kuras dasar), atau PH_RECOVERY (dosing bertahap).` },
+    { no: 6, label: 'Limbah POC', kamera: 'tangki', teks: `Sisa pakan dan lumpur dasar kolam ${nl} tidak dibuang ke selokan, melainkan ditampung ke tangki untuk diolah menjadi pupuk organik cair (POC).` },
+    { no: 7, label: 'Uji & dampak', kamera: 'overview', teks: `Uji skenario hujan, overfeeding ${nl}, atau node mati, lalu bandingkan dengan kolam kembar (simulasi) yang masih memakai timer pakan biasa.` },
+    { no: 8, label: 'Kalibrasi', kamera: 'node4', teks: 'Kalibrasi probe pH dan TDS cukup lewat tombol terpandu tanpa edit kode. Hasilnya tersimpan otomatis di calibration.json.' },
+  ];
+}
 
 // aksi(ctx): ctx = { sim, pilihKolam, tekanFisik }
-export const TUR = [
-  {
-    bagian: 1, kamera: 'overview', kecepatan: 600, durasi: 11,
-    judul: 'Halo, aku Si Nila!',
-    teks: 'Aku ikan nila pemandu klaster AQUA-LOCK. Ada 4 kolam bioflok Ø3 m di sini. Pakan hanya keluar kalau air aman untuk kami.',
-  },
-  {
-    bagian: 2, kamera: 'node1', kecepatan: 60, durasi: 12,
-    judul: 'Sensor Node ESP32',
-    teks: 'Tiap kolam punya node sendiri. Ia membaca TDS, mematikan probe TDS lewat MOSFET, baru membaca pH dan suhu. Lihat urutannya di panel kanan.',
-    aksi: ({ pilihKolam }) => pilihKolam(1),
-  },
-  {
-    bagian: 3, kamera: 'gateway', kecepatan: 60, durasi: 12,
-    judul: 'Otak di Master Gateway',
-    teks: 'Data dikirim lewat MQTT lokal tiap 30 detik. Model XGBoost di Arduino Uno Q menebak risiko amonia, lalu memutuskan porsi pakan 100%, 50%, atau 0%.',
-  },
-  {
-    bagian: 5, kamera: 'drain', kecepatan: 20, durasi: 10,
-    judul: 'Ups, pakan berlebih!',
-    teks: 'Pekerja menabur 3 kg pakan ke Kolam 2. TDS melonjak lewat 600 ppm, FSM pindah ke CLEANING dan katup drain mengalirkan lumpur dasar.',
-    aksi: ({ sim, pilihKolam }) => { pilihKolam(2); sim.skenario('pakanBerlebih', 2); },
-  },
-  {
-    bagian: 6, kamera: 'tangki', kecepatan: 20, durasi: 9,
-    judul: 'Limbah jadi pupuk',
-    teks: 'Kuras dibatasi 15% volume dan masuk tangki POC, bukan selokan. Setelah itu air bersih dari tandon mengisi ulang kolam.',
-  },
-  {
-    bagian: 4, kamera: 'feeder2', kecepatan: 20, durasi: 10,
-    judul: 'Coba paksa beri makan',
-    teks: 'Aku tekan tombol Manual Feed untuk Kolam 2… ditolak! Servo diam, buzzer bunyi, dan OLED menampilkan alasannya dalam hitungan milidetik.',
-    aksi: ({ pilihKolam, tekanFisik }) => { pilihKolam(2); setTimeout(() => tekanFisik(2), 900); },
-  },
-  {
-    bagian: 5, kamera: 'overview', kecepatan: 600, durasi: 14,
-    judul: 'Hujan deras turun',
-    teks: 'Air hujan menurunkan pH semua kolam. Saat pH < 6,5, AI menghitung durasi pompa pH-Up (maks 4 detik), lalu menunggu homogenisasi 10 menit.',
-    aksi: ({ sim }) => sim.skenario('hujan', 1),
-  },
-  {
-    bagian: 7, kamera: 'overview', kecepatan: 600, durasi: 11,
-    judul: 'Bandingkan dengan cara lama',
-    teks: 'Setiap kolam punya kembaran yang memakai timer pakan dan ganti air manual. Lihat tabel dampak: pakan terbuang dan menit amonia beracun.',
-  },
-  {
-    bagian: 1, kamera: 'overview', kecepatan: 60, durasi: 10,
-    judul: 'Sekarang giliranmu',
-    teks: 'Klik kolam atau nomor di layar untuk menjelajah. Tekan L untuk timelapse 24 jam, H untuk membersihkan layar.',
-  },
-];
+export function buatTur(profil = ambilProfilKomoditas(KOMODITAS_DEFAULT)) {
+  const n = profil.nama;
+  const nl = n.toLowerCase();
+  const A = profil.ambang;
+  return [
+    {
+      bagian: 1, kamera: 'overview', kecepatan: 600, durasi: 11,
+      judul: 'Halo, aku Si Aqua!',
+      teks: `Aku maskot hybrid AQUA-LOCK—muka lele berkumis, badan udang bersegmen, buntut ikan! Sekarang mode utama ${n} aktif di 4 kolam bundar Ø3 m (simulasi). ${profil.narasiFokus}`,
+    },
+    {
+      bagian: 2, kamera: 'node1', kecepatan: 60, durasi: 12,
+      judul: 'Sensor Node ESP32',
+      teks: `Tiap kolam ${nl} punya node sendiri. Ia menyalakan probe TDS lewat MOSFET, membacanya, memutus daya probe TDS, baru membaca pH dan suhu agar data kualitas air akurat.`,
+      aksi: ({ pilihKolam }) => pilihKolam(1),
+    },
+    {
+      bagian: 3, kamera: 'gateway', kecepatan: 60, durasi: 12,
+      judul: 'Otak AI di Master Gateway',
+      teks: `Data dikirim via MQTT lokal tiap 30 detik. Model XGBoost di Arduino Uno Q menaksir risiko NH₃ dan mengatur porsi pakan ${nl} 100%, 50% (suhu < ${A.SUHU_DINGIN} °C / risiko ≥ ${fmt(A.RISIKO_KURANG, 2)}), atau 0%.`,
+    },
+    {
+      bagian: 5, kamera: 'drain', kecepatan: 20, durasi: 11,
+      judul: 'Awas, overfeeding!',
+      teks: `Saat 3 kg pakan ${nl} ditabur berlebih di Kolam 2, sisa pakan mengendap jadi limbah dasar dan TDS melewati patokan ${A.TDS_MAX} ppm. FSM masuk CLEANING dan menguras lumpur dasar lewat bottom drain.`,
+      aksi: ({ sim, pilihKolam }) => { pilihKolam(2); sim.skenario('pakanBerlebih', 2); },
+    },
+    {
+      bagian: 6, kamera: 'tangki', kecepatan: 20, durasi: 10,
+      judul: 'Limbah dasar jadi pupuk cair (POC)',
+      teks: `Kuras dibatasi maksimal 15% volume agar ${nl} tidak stres. Lumpur kaya organik dialirkan ke tangki POC untuk pemulihan pupuk cair—bukan ke selokan—lalu air bersih mengisi ulang kolam.`,
+    },
+    {
+      bagian: 4, kamera: 'feeder2', kecepatan: 20, durasi: 11,
+      judul: 'Uji Safety Interlock pakan',
+      teks: 'Aku tekan tombol Manual Feed di Kolam 2 saat CLEANING… langsung ditolak! Servo terkunci, buzzer berbunyi, dan OLED menampilkan alasannya dalam hitungan milidetik agar amonia tidak melonjak.',
+      aksi: ({ pilihKolam, tekanFisik }) => { pilihKolam(2); setTimeout(() => tekanFisik(2), 900); },
+    },
+    {
+      bagian: 5, kamera: 'overview', kecepatan: 600, durasi: 14,
+      judul: 'Hujan deras & pemulihan pH',
+      teks: `Hujan menurunkan pH seluruh kolam ${nl}. Saat pH < ${fmt(A.PH_MIN)} (patokan simulasi ${n}), FSM masuk PH_RECOVERY, mengunci pakan, lalu menakar pompa pH-Up maks 4 detik + homogenisasi 10 menit agar ${nl} bebas pH shock.`,
+      aksi: ({ sim }) => sim.skenario('hujan', 1),
+    },
+    {
+      bagian: 7, kamera: 'overview', kecepatan: 600, durasi: 11,
+      judul: 'Bandingkan dengan cara lama',
+      teks: `Tiap kolam ${nl} punya kembaran (skenario simulasi) yang memakai timer pakan biasa & buang air ke selokan. Lihat tabel dampak: pakan terbuang, paparan NH₃, dan limbah yang diselamatkan ke tangki POC.`,
+    },
+    {
+      bagian: 1, kamera: 'overview', kecepatan: 60, durasi: 10,
+      judul: 'Coba ganti komoditas juga!',
+      teks: 'Buntut ikanku, badan udangku, dan kumis leleku mewakili mode multi-komoditas! Coba ganti komoditas di bilah atas (dengan jeda booting 30 dtk + tombol Skip) atau chat Si Aqua Bot di kanan bawah.',
+    },
+  ];
+}
+
+export const BAGIAN = buatBagian();
+export const TUR = buatTur();
 
 export const TARGET_CARI = [
   { teks: 'Kolam 1', kamera: 'kolam1', kolam: 1, bagian: 2 },

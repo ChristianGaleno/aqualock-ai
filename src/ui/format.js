@@ -17,6 +17,7 @@ export const angka = (v, d = 0) =>
 
 // Informasi tampilan untuk tiap status FSM
 export function infoState(k, sim) {
+  if (sim.booting) return { kode: 'BOOTING', label: `Booting ${sim.booting.targetNama}`, nada: 'serius' };
   if (!k.online) return { kode: 'OFFLINE', label: 'Node offline', nada: 'mati' };
   if (sim.t < sim.master.hangSampai) return { kode: 'HANG', label: 'MPU reboot', nada: 'mati' };
   if (k.fsm.state === 'CLEANING') return { kode: 'CLEANING', label: k.fsm.sub === 'DITUNDA' ? 'Cleaning · ditunda' : 'Cleaning', nada: 'kritis' };

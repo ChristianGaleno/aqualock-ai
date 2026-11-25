@@ -24,15 +24,15 @@ node ml/cek_model_js.mjs   # pastikan hasil JS = Python
 
 | File | Isi | Bab PRD |
 |---|---|---|
-| `src/sim/constants.js` | Semua ambang batas (pH 6,5–8,2, TDS 600, risiko 0,40/0,70, dosing maks 4 dtk, kuras 15%, watchdog 180 dtk) | F2, F3, F4, Bab 7 & 9 |
+| `src/sim/constants.js` | Profil multi-komoditas (default Udang + Nila, Lele, Patin) & ambang simulasi | F2, F3, F4, Bab 7 & 9 |
 | `src/sim/chemistry.js` | Rumus Emerson (fraksi NH3), pola harian, kalibrasi pH `pH = m·V + c`, kompensasi TDS `V/(1+0,02(T−25))`, regresi linear | Bab 6 |
 | `src/sim/model.js` | Inference XGBoost di JavaScript (jumlah nilai daun → sigmoid) | F2 |
 | `src/sim/ai.js` | Fitur, risiko NH3, porsi 100/50/0%, prediksi pH 30 mnt, deteksi anomali & data datar, durasi dosing | F2, F5 |
-| `src/sim/engine.js` | Fisika air, Sequential Reading, FSM, Safety Interlock, watchdog, tangki POC, MQTT, skenario | F1, F3, F4, Bab 9 |
+| `src/sim/engine.js` | Fisika air, Sequential Reading, FSM, Safety Interlock, jeda booting 30 dtk, watchdog, tangki POC, MQTT, skenario | F1, F3, F4, Bab 9 |
 | `src/twin/Scene3D.js` | Digital twin 3D (three.js): kolam, node, feeder, pipa drain/inlet, tangki POC, gateway, hujan, siang–malam. Dibaca langsung dari simulator tiap frame | F6 |
 | `src/twin/Panel.jsx` | Panel kanan bagian 1–8 | F6 |
-| `src/twin/konten.js` | Teks bagian & naskah tur 2 menit Si Kumis | – |
-| `src/twin/Maskot.jsx` | Maskot Si Kumis (SVG) | – |
+| `src/twin/konten.js` | Teks bagian & naskah tur 2 menit adaptif Si Aqua | – |
+| `src/twin/Maskot.jsx` | Maskot hybrid Si Aqua (muka lele berkumis + badan udang + buntut ikan, SVG) | – |
 | `src/ui/*` | Komponen: OLED, FSM, grafik, skenario, kalibrasi, model, arsitektur | F6 |
 | `ml/generate_dataset.mjs` | Dataset sintetis 120 hari dari simulator | Sprint 2 |
 | `ml/train_xgboost.py` | Latih + evaluasi (split waktu 80/20) + ekspor pohon | Sprint 2 |
@@ -70,7 +70,7 @@ Lihat tab **Model AI** atau `src/sim/xgb_model.js` → `metrik`. Pada versi ini 
 
 ## Asumsi simulasi (wajib dijelaskan jujur ke juri)
 
-Laju ekskresi TAN (28 g/kg pakan), laju penyerapan bioflok (1,0/jam), efek pompa dosing
-(±0,12 pH/detik), dan respons ikan adalah **asumsi** untuk simulasi. Label bahaya
+Laju ekskresi TAN (28 g/kg pakan), laju penyerapan bioflok/nitrifikasi (1,0/jam), efek pompa dosing
+(±0,12 pH/detik), padat tebar/biomassa, dan respons makan udang adalah **asumsi** untuk simulasi. Label bahaya
 NH3 > 0,05 mg/L juga keputusan tim. Semua perlu divalidasi dengan uji kit amonia di
-kolam mitra sebelum model dipakai sungguhan.
+kolam udang mitra sebelum model dipakai sungguhan.

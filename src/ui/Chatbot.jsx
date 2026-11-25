@@ -1,6 +1,7 @@
 // =============================================================
-// Chatbot.jsx — Asisten Bot Si Nila untuk kontrol & monitoring
-// kolam ikan nila dari jarak jauh (saat pemilik sedang di luar).
+// Chatbot.jsx — Asisten Bot Si Aqua (maskot hybrid: muka lele
+// berkumis, badan udang bersegmen, buntut ikan) untuk kontrol &
+// monitoring kolam budidaya dari jarak jauh.
 // =============================================================
 import { useEffect, useRef, useState } from 'react';
 import Maskot from '../twin/Maskot.jsx';
@@ -26,7 +27,7 @@ export default function Chatbot({ ruang, adaAlert, ctx }) {
     {
       id: 1,
       dari: 'bot',
-      teks: 'Halo pemilik! Aku **Si Nila Bot** 🐟. Lagi di luar? Ketik perintah apa saja — aku bisa langsung cek sensor, beri pakan, atur pH/TDS, kuras ke tangki POC, atau aktifkan **Mode Pergi**.',
+      teks: 'Halo pemilik! Aku **Si Aqua Bot** (maskot hybrid: muka lele berkumis, badan udang, buntut ikan). Mode default aktif: **Udang** 🦐. Ketik perintah apa saja — cek sensor, beri pakan aman, ganti mode komoditas (*"mode nila"*, *"mode lele"*, *"mode patin"*), *"skip booting"*, atau kuras ke tangki POC.',
       aksi: '● Terhubung ke ESP32 & Gateway',
     },
   ]);
@@ -61,12 +62,12 @@ export default function Chatbot({ ruang, adaAlert, ctx }) {
   return (
     <div className={`bot-wrap ${buka ? 'terbuka' : ''}`}>
       {buka && (
-        <section className="bot-panel" aria-label="Chatbot Remote Control Si Nila">
+        <section className="bot-panel" aria-label="Chatbot Remote Control Si Aqua">
           <header className="bot-kepala">
             <div className="bot-profil">
               <Maskot ukuran={36} melambai={false} />
               <div>
-                <strong>Si Nila Bot · Remote Control</strong>
+                <strong>Si Aqua Bot · Mode {ctx?.profil?.nama || 'Udang'}</strong>
                 <span><i className="bot-online" />Kontrol langsung dari luar</span>
               </div>
             </div>
@@ -94,8 +95,8 @@ export default function Chatbot({ ruang, adaAlert, ctx }) {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder='Ketik: "kuras kolam", "set pH 7.2", "beri pakan"...'
-              aria-label="Ketik perintah untuk Si Nila Bot"
+              placeholder='Ketik: "mode lele", "skip booting", "cek status"...'
+              aria-label="Ketik perintah untuk Si Aqua Bot"
             />
             <button type="submit" disabled={!input.trim()}>Kirim</button>
           </form>
@@ -107,10 +108,10 @@ export default function Chatbot({ ruang, adaAlert, ctx }) {
         className={`bot-fab ${buka ? 'aktif' : ''}`}
         onClick={() => setBuka((v) => !v)}
         aria-expanded={buka}
-        aria-label={buka ? 'Tutup Si Nila Bot' : 'Buka Si Nila Bot Remote Control'}
+        aria-label={buka ? 'Tutup Si Aqua Bot' : 'Buka Si Aqua Bot Remote Control'}
       >
         <Maskot ukuran={34} melambai={!buka} />
-        <span>{buka ? 'Tutup Bot' : 'Si Nila Bot'}</span>
+        <span>{buka ? 'Tutup Bot' : 'Si Aqua Bot'}</span>
         {adaAlert && !buka && <i className="bot-alert-dot" title="Ada peringatan Safety Interlock" />}
       </button>
     </div>

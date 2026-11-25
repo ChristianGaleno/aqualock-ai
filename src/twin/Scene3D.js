@@ -231,27 +231,37 @@ export class TwinScene {
     cincin.rotation.x = -Math.PI / 2;
     cincin.position.y = 0.04;
     g.add(cincin);
-    // ikan nila merah (oval pipih + sirip ekor kipas + sirip punggung)
-    const ikan = [];
-    const geoBadanNila = new THREE.SphereGeometry(0.055, 8, 6);
-    geoBadanNila.scale(1.45, 0.85, 0.42);
-    const geoEkorNila = new THREE.ConeGeometry(0.038, 0.068, 5);
-    geoEkorNila.rotateZ(Math.PI / 2);
-    geoEkorNila.scale(1, 1, 0.28);
-    const geoPunggungNila = new THREE.ConeGeometry(0.042, 0.05, 4);
-    geoPunggungNila.scale(1.2, 0.5, 0.16);
-    const warnaNila = [0xeb6834, 0xf28749, 0xd9532f];
-    for (let f = 0; f < 7; f++) {
+    // udang (karapas + ruas melengkung + kipas ekor + sungut, menghadap +Z)
+    const udang = [];
+    const geoKarapas = new THREE.SphereGeometry(0.034, 8, 6);
+    geoKarapas.scale(0.75, 0.72, 1.45);
+    const geoRuas = new THREE.SphereGeometry(0.028, 7, 5);
+    geoRuas.scale(0.65, 0.65, 1.25);
+    const geoEkorUdang = new THREE.ConeGeometry(0.028, 0.055, 5);
+    geoEkorUdang.rotateX(-Math.PI / 2 + 0.25);
+    geoEkorUdang.scale(1.3, 0.25, 1);
+    const geoSungut = new THREE.CylinderGeometry(0.0022, 0.001, 0.095, 4);
+    const warnaUdang = [0xf28458, 0xf79e78, 0xe26c42];
+    for (let f = 0; f < 8; f++) {
       const m = new THREE.Group();
-      const badan = new THREE.Mesh(geoBadanNila, bahan(warnaNila[f % 3], { flatShading: false, roughness: 0.45 }));
-      const ekor = new THREE.Mesh(geoEkorNila, bahan(0xc93e22));
-      ekor.position.x = -0.085;
-      const punggung = new THREE.Mesh(geoPunggungNila, bahan(0xd44326));
-      punggung.position.set(-0.01, 0.044, 0);
-      m.add(badan, ekor, punggung);
-      m.userData = { r: 0.28 + Math.random() * 0.62, w: 0.25 + Math.random() * 0.35, f: Math.random() * 6.28, d: Math.random() * 0.18 };
+      const badan = new THREE.Group();
+      const karapas = new THREE.Mesh(geoKarapas, bahan(warnaUdang[f % 3], { flatShading: false, roughness: 0.42 }));
+      karapas.position.set(0, 0.004, 0.032);
+      const ruas = new THREE.Mesh(geoRuas, bahan(0xe87348, { flatShading: false, roughness: 0.44 }));
+      ruas.position.set(0, -0.002, -0.022);
+      const sungutKiri = new THREE.Mesh(geoSungut, bahan(0xffceb8));
+      sungutKiri.position.set(-0.014, 0.01, 0.088);
+      sungutKiri.rotation.set(Math.PI / 2 - 0.15, 0, 0.22);
+      const sungutKanan = new THREE.Mesh(geoSungut, bahan(0xffceb8));
+      sungutKanan.position.set(0.014, 0.01, 0.088);
+      sungutKanan.rotation.set(Math.PI / 2 - 0.15, 0, -0.22);
+      badan.add(karapas, ruas, sungutKiri, sungutKanan);
+      const ekor = new THREE.Mesh(geoEkorUdang, bahan(0xc93e22));
+      ekor.position.set(0, -0.012, -0.068);
+      m.add(badan, ekor);
+      m.userData = { r: 0.26 + Math.random() * 0.65, w: 0.22 + Math.random() * 0.3, f: Math.random() * 6.28, d: 0.08 + Math.random() * 0.24 };
       g.add(m);
-      ikan.push(m);
+      udang.push(m);
     }
     // auto-feeder: lebih ringkas
     const feeder = new THREE.Group();
@@ -304,7 +314,7 @@ export class TwinScene {
     tetes.frustumCulled = false;
     tetes.visible = false;
     g.add(tetes);
-    return { g, air, cincin, ikan, led, gembok, pelet, tetes, mulaiPakan: -10, mulaiTetes: -10, pakanLama: 0 };
+    return { g, air, cincin, udang, led, gembok, pelet, tetes, mulaiPakan: -10, mulaiTetes: -10, pakanLama: 0 };
   }
 
   bangunPipa() {
@@ -639,12 +649,12 @@ export class TwinScene {
       v.led.material.emissive.setHex(k.online ? WARNA.baik : WARNA.kritis);
       v.led.material.emissiveIntensity = k.online ? 0.6 + 0.8 * (Math.sin(t * 6 + i) > 0.7 ? 1 : 0) : 1.2;
 
-      v.ikan.forEach((f, idx) => {
+      v.udang.forEach((f, idx) => {
         const u = f.userData;
         u.f += dt * u.w * (kunci ? 0.6 : 1);
-        f.position.set(Math.cos(u.f) * u.r, Math.max(0.08, level - 0.06 - u.d), Math.sin(u.f) * u.r);
+        f.position.set(Math.cos(u.f) * u.r, Math.max(0.06, level - 0.12 - u.d), Math.sin(u.f) * u.r);
         f.rotation.y = -u.f;
-        if (f.children[1]) f.children[1].rotation.y = Math.sin(t * 9 + idx) * 0.4;
+        if (f.children[1]) f.children[1].rotation.x = Math.sin(t * 8 + idx) * 0.3;
       });
 
       // Pelet jatuh saat pakan benar-benar diberikan

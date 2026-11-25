@@ -14,14 +14,23 @@ import {
 } from './komponen.js';
 import sketchRaw from '../../wokwi/sketch.ino?raw';
 
-const PRESET = [
-  { id: 'normal', label: 'NORMAL (100%)', sub: 'pH 7,2 · TDS 360', nada: 'normal', v: { ph: 7.2, tdsRaw: 380, temp: 28, distCm: 30 } },
-  { id: 'normal50', label: 'NORMAL (50%)', sub: 'T 23 °C / TDS 500', nada: 'normal', v: { ph: 7.2, tdsRaw: 500, temp: 23, distCm: 30 } },
-  { id: 'clean_drain', label: 'CLEANING · Kuras', sub: 'TDS 760 · Jarak 25 cm', nada: 'cleaning', v: { ph: 7.2, tdsRaw: 800, temp: 28, distCm: 25 } },
-  { id: 'clean_inlet', label: 'CLEANING · Inlet', sub: 'TDS 720 · Jarak 52 cm', nada: 'cleaning', v: { ph: 7.2, tdsRaw: 760, temp: 28, distCm: 52 } },
-  { id: 'ph_up', label: 'PH_RECOVERY · Up', sub: 'pH 5,6 (asam)', nada: 'recovery', v: { ph: 5.6, tdsRaw: 380, temp: 28, distCm: 30 } },
-  { id: 'ph_down', label: 'PH_RECOVERY · Down', sub: 'pH 8,9 (basa)', nada: 'recovery', v: { ph: 8.9, tdsRaw: 380, temp: 28, distCm: 30 } },
-];
+function buatPreset(profil, A) {
+  const n = profil.presetNormal;
+  const phAsam = +(A.phMin - 0.8).toFixed(1);
+  const phBasa = +(A.phMax + 0.6).toFixed(1);
+  const tdsKuras = A.tds + 180;
+  const tdsInlet = A.tds + 140;
+  const suhuDingin = A.suhuDingin - 2;
+  const tdsSedang = A.tdsPorsi + 40;
+  return [
+    { id: 'normal', label: 'NORMAL (100%)', sub: `pH ${n.ph.toFixed(1).replace('.', ',')} · TDS ${n.tdsRaw}`, nada: 'normal', v: { ...n } },
+    { id: 'normal50', label: 'NORMAL (50%)', sub: `T ${suhuDingin} °C / TDS ${tdsSedang}`, nada: 'normal', v: { ph: n.ph, tdsRaw: tdsSedang, temp: suhuDingin, distCm: 30 } },
+    { id: 'clean_drain', label: 'CLEANING · Kuras', sub: `TDS > ${A.tds} · Jarak 25 cm`, nada: 'cleaning', v: { ph: n.ph, tdsRaw: tdsKuras, temp: n.temp, distCm: 25 } },
+    { id: 'clean_inlet', label: 'CLEANING · Inlet', sub: `TDS > ${A.tds} · Jarak 52 cm`, nada: 'cleaning', v: { ph: n.ph, tdsRaw: tdsInlet, temp: n.temp, distCm: 52 } },
+    { id: 'ph_up', label: 'PH_RECOVERY · Up', sub: `pH ${phAsam.toFixed(1).replace('.', ',')} (asam)`, nada: 'recovery', v: { ph: phAsam, tdsRaw: n.tdsRaw, temp: n.temp, distCm: 30 } },
+    { id: 'ph_down', label: 'PH_RECOVERY · Down', sub: `pH ${phBasa.toFixed(1).replace('.', ',')} (basa)`, nada: 'recovery', v: { ph: phBasa, tdsRaw: n.tdsRaw, temp: n.temp, distCm: 30 } },
+  ];
+}
 
 const TAB_PANEL = [
   { id: 'kontrol', label: 'Kontrol & Uji' },
@@ -30,11 +39,20 @@ const TAB_PANEL = [
   { id: 'serial', label: 'Serial & Kode' },
 ];
 
-const NAMA_STATE = {
-  NORMAL: { teks: 'NORMAL', ket: 'Air aman · pakan diizinkan', kelas: 'st-normal' },
-  CLEANING: { teks: 'CLEANING', ket: 'TDS > 600 ppm · kuras POC & isi ulang', kelas: 'st-cleaning' },
-  PH_RECOVERY: { teks: 'PH_RECOVERY', ket: 'pH di luar 6,5–8,2 · dosing otomatis', kelas: 'st-recovery' },
-};
+function infoStateNode(fw, A) {
+  const phRange = `${A.phMin.toFixed(1).replace('.', ',')}–${A.phMax.toFixed(1).replace('.', ',')}`;
+  const peta = {
+    BOOTING: {
+      teks: 'BOOTING',
+      ket: fw.booting ? `Memuat patokan ${fw.booting.targetNama} (${Math.ceil(fw.booting.sisaDtk)} dtk) · pakan & aktuator ditahan` : 'Memuat patokan baru…',
+      kelas: 'st-booting',
+    },
+    NORMAL: { teks: 'NORMAL', ket: `Air kolam ${fw.komoditas.nama.toLowerCase()} aman · pakan diizinkan`, kelas: 'st-normal' },
+    CLEANING: { teks: 'CLEANING', ket: `TDS > ${A.tds} ppm (simulasi ${fw.komoditas.nama}) · kuras lumpur dasar ke POC & isi ulang`, kelas: 'st-cleaning' },
+    PH_RECOVERY: { teks: 'PH_RECOVERY', ket: `pH di luar ${phRange} (simulasi ${fw.komoditas.nama}) · dosing bertahap otomatis`, kelas: 'st-recovery' },
+  };
+  return peta[fw.state] || peta.NORMAL;
+}
 
 function MiniOled({ baris }) {
   const layar = barisOled(baris);
@@ -64,16 +82,20 @@ export default function PanelNode({
   fw, mode, xray, setXray, tampilDaya, setTampilDaya,
   tab, setTab, dipilih, onPilihPart, onLompat,
   onSlider, onPreset, onFeed, onToggleFisika, onKosongkanPoc, onReset,
-  suara, setSuara,
+  suara, setSuara, booting, onSkipBooting,
 }) {
   const [bukaGrup, setBukaGrup] = useState({ mcu: true, sensor: true, safety: true, aktuator: true });
   const [tampilKode, setTampilKode] = useState(false);
   const [jedaSerial, setJedaSerial] = useState(false);
   const [salinOk, setSalinOk] = useState(false);
 
+  const A = fw.ambang || AMBANG_NODE;
+  const profil = fw.komoditas;
+  const presetDaftar = useMemo(() => buatPreset(profil, A), [profil, A]);
   const daftarGrup = useMemo(() => daftarPerGrup(), []);
-  const infoSt = NAMA_STATE[fw.state] || NAMA_STATE.NORMAL;
-  const warnaSt = WARNA_STATE[fw.state];
+  const infoSt = infoStateNode(fw, A);
+  const warnaSt = WARNA_STATE[fw.state] || WARNA_STATE.NORMAL;
+  const phRangeTeks = `${A.phMin.toFixed(1).replace('.', ',')}–${A.phMax.toFixed(1).replace('.', ',')}`;
 
   const idEfektif = dipilih ? (INFO[dipilih] ? dipilih : null) : null;
   const infoDipilih = idEfektif ? INFO[idEfektif] : null;
@@ -104,7 +126,7 @@ export default function PanelNode({
           <div className="nd-status-atas">
             <span className="nd-pil-state"><i style={{ background: warnaSt }} />{infoSt.teks}</span>
             <span className={`nd-pil-lock ${fw.feedLocked ? 'terkunci' : 'aman'}`}>
-              {fw.feedLocked ? 'FEED LOCKED · 0%' : `FEED READY · ${fw.feedPortion}%`}
+              {fw.booting ? `BOOTING · ${Math.ceil(fw.booting.sisaDtk)}s` : fw.feedLocked ? 'FEED LOCKED · 0%' : `FEED READY · ${fw.feedPortion}%`}
             </span>
           </div>
           <p className="nd-status-ket">{infoSt.ket}</p>
@@ -114,14 +136,20 @@ export default function PanelNode({
 
         {/* Tombol Utama sesuai spesifikasi interactive_controls */}
         <div className="nd-aksi-utama">
-          <button
-            type="button"
-            className={`nd-btn-feed ${fw.feedLocked ? 'terkunci' : 'siap'}`}
-            onClick={onFeed}
-          >
-            <IkonGembok terkunci={fw.feedLocked} />
-            <span>{fw.feedLocked ? 'Manual Feed (Test Safety Interlock)' : `Trigger Manual Feed (${fw.feedPortion}%)`}</span>
-          </button>
+          {booting && onSkipBooting ? (
+            <button type="button" className="nd-btn-feed terkunci" onClick={onSkipBooting}>
+              <span>Booting {Math.ceil(booting.sisaDtk)} dtk · Klik Skip Booting →</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`nd-btn-feed ${fw.feedLocked ? 'terkunci' : 'siap'}`}
+              onClick={onFeed}
+            >
+              <IkonGembok terkunci={fw.feedLocked} />
+              <span>{fw.feedLocked ? 'Manual Feed (Test Safety Interlock)' : `Trigger Manual Feed (${fw.feedPortion}%)`}</span>
+            </button>
+          )}
 
           <div className="nd-aksi-baris">
             {mode === 'kolam' ? (
@@ -177,17 +205,30 @@ export default function PanelNode({
         {/* ---------- TAB 1: KONTROL & UJI ---------- */}
         {tab === 'kontrol' && (
           <>
+            <div className="profil-aktif-box">
+              <div className="profil-aktif-atas">
+                <strong>{profil.ikon} Profil Aktif: {profil.label}</strong>
+                <span>Asumsi Simulasi</span>
+              </div>
+              <div className="profil-aktif-param">
+                <code>pH {phRangeTeks}</code>
+                <code>TDS ≤ {A.tds} ppm</code>
+                <code>Suhu ≥ {A.suhuDingin} °C</code>
+                <code>Pakan {(profil.tebar.rasioPakan * 100).toFixed(1).replace('.', ',')}%</code>
+              </div>
+            </div>
+
             <section className="nd-kartu">
               <div className="nd-kartu-judul">
                 <h3>1. Slider Sensor Real-Time</h3>
-                <span className="nd-badge-kecil">Input Wokwi</span>
+                <span className="nd-badge-kecil">Mode {profil.nama}</span>
               </div>
 
               {/* Slider pH (4.0 - 10.0) */}
               <div className="nd-slider-grup">
                 <div className="nd-slider-kepala">
-                  <label htmlFor="sl-ph">pH Air <small>(aman 6,5–8,2)</small></label>
-                  <strong className={fw.baca.ph < AMBANG_NODE.phMin || fw.baca.ph > AMBANG_NODE.phMax ? 'bahaya' : 'aman'}>
+                  <label htmlFor="sl-ph">pH Air <small>(aman {phRangeTeks})</small></label>
+                  <strong className={fw.baca.ph < A.phMin || fw.baca.ph > A.phMax ? 'bahaya' : 'aman'}>
                     {fw.baca.ph.toFixed(2)}
                   </strong>
                 </div>
@@ -198,36 +239,36 @@ export default function PanelNode({
                 />
                 <div className="nd-skala">
                   <span>4,0 (Asam)</span>
-                  <span className="nd-tanda">6,5 – 8,2</span>
+                  <span className="nd-tanda">{phRangeTeks}</span>
                   <span>10,0 (Basa)</span>
                 </div>
               </div>
 
-              {/* Slider TDS (100 - 900 ppm) */}
+              {/* Slider TDS (100 - 950 ppm) */}
               <div className="nd-slider-grup">
                 <div className="nd-slider-kepala">
-                  <label htmlFor="sl-tds">TDS Sensor <small>(batas &gt; 600 ppm)</small></label>
-                  <strong className={fw.baca.tds > AMBANG_NODE.tds ? 'kritis' : fw.baca.tds > AMBANG_NODE.tdsPorsi ? 'waspada' : 'aman'}>
+                  <label htmlFor="sl-tds">TDS Sensor <small>(batas &gt; {A.tds} ppm)</small></label>
+                  <strong className={fw.baca.tds > A.tds ? 'kritis' : fw.baca.tds > A.tdsPorsi ? 'waspada' : 'aman'}>
                     {fw.baca.tds.toFixed(0)} ppm
                   </strong>
                 </div>
                 <input
-                  id="sl-tds" type="range" min="100" max="900" step="5"
+                  id="sl-tds" type="range" min="100" max="950" step="5"
                   value={fw.input.tdsRaw}
                   onChange={(e) => onSlider('tdsRaw', Number(e.target.value))}
                 />
                 <div className="nd-skala">
                   <span>100 ppm</span>
                   <span className="nd-tanda">mentah {fw.baca.tdsRaw.toFixed(0)} → komp. {fw.baca.tds.toFixed(0)}</span>
-                  <span>900 ppm</span>
+                  <span>950 ppm</span>
                 </div>
               </div>
 
               {/* Slider Suhu (20 - 34 °C) */}
               <div className="nd-slider-grup">
                 <div className="nd-slider-kepala">
-                  <label htmlFor="sl-temp">Suhu Air <small>(&lt; 24 °C → porsi 50%)</small></label>
-                  <strong className={fw.baca.temp < AMBANG_NODE.suhuDingin ? 'waspada' : 'aman'}>
+                  <label htmlFor="sl-temp">Suhu Air <small>(&lt; {A.suhuDingin} °C → porsi 50%)</small></label>
+                  <strong className={fw.baca.temp < A.suhuDingin ? 'waspada' : 'aman'}>
                     {fw.baca.temp.toFixed(1)} °C
                   </strong>
                 </div>
@@ -269,7 +310,7 @@ export default function PanelNode({
                 <span className="nd-badge-kecil">6 skenario</span>
               </div>
               <div className="nd-preset-grid">
-                {PRESET.map((p) => (
+                {presetDaftar.map((p) => (
                   <button
                     key={p.id}
                     type="button"
@@ -342,10 +383,10 @@ export default function PanelNode({
               </div>
               <div className="nd-daftar-aktuator">
                 {[
-                  { nama: 'Relay Drain → POC', pin: 'GPIO26', on: fw.out.drain, warna: '#eab308', ket: `Kuras saat TDS > 600 & jarak < 45 cm (${fw.pocL.toFixed(0)} L)` },
-                  { nama: 'Relay Inlet Air Bersih', pin: 'GPIO27', on: fw.out.inlet, warna: '#3b82f6', ket: 'Isi ulang saat TDS > 600 & jarak ≥ 45 cm' },
-                  { nama: 'Relay Dosing pH-Up', pin: 'GPIO32', on: fw.out.up, warna: '#22c55e', ket: `Dosing basa saat pH < 6,5 (${fw.dosisMl.up.toFixed(0)} mL)` },
-                  { nama: 'Relay Dosing pH-Down', pin: 'GPIO33', on: fw.out.down, warna: '#a855f7', ket: `Dosing asam saat pH > 8,2 (${fw.dosisMl.down.toFixed(0)} mL)` },
+                  { nama: 'Relay Drain → POC', pin: 'GPIO26', on: fw.out.drain, warna: '#eab308', ket: `Kuras saat TDS > ${A.tds} & jarak < 45 cm (${fw.pocL.toFixed(0)} L)` },
+                  { nama: 'Relay Inlet Air Bersih', pin: 'GPIO27', on: fw.out.inlet, warna: '#3b82f6', ket: `Isi ulang saat TDS > ${A.tds} & jarak ≥ 45 cm` },
+                  { nama: 'Relay Dosing pH-Up', pin: 'GPIO32', on: fw.out.up, warna: '#22c55e', ket: `Dosing basa saat pH < ${A.phMin.toFixed(1).replace('.', ',')} (${fw.dosisMl.up.toFixed(0)} mL)` },
+                  { nama: 'Relay Dosing pH-Down', pin: 'GPIO33', on: fw.out.down, warna: '#a855f7', ket: `Dosing asam saat pH > ${A.phMax.toFixed(1).replace('.', ',')} (${fw.dosisMl.down.toFixed(0)} mL)` },
                 ].map((a) => (
                   <div key={a.pin} className={`nd-item-akt ${a.on ? 'aktif' : ''}`}>
                     <span className="nd-dot" style={{ background: a.on ? a.warna : '#cbd5e1', boxShadow: a.on ? `0 0 10px ${a.warna}` : 'none' }} />
@@ -384,20 +425,20 @@ export default function PanelNode({
 
             <section className="nd-kartu">
               <div className="nd-kartu-judul">
-                <h3>Logika FSM (<code>sketch.ino</code>)</h3>
+                <h3>Logika FSM ({profil.nama})</h3>
               </div>
               <div className="nd-fsm-list">
                 <div className={`nd-fsm-row ${fw.state === 'CLEANING' ? 'aktif cleaning' : ''}`}>
                   <b>1. CLEANING</b>
-                  <span><code>tds &gt; 600</code> → <code>feedLocked = true</code>, drain (&lt;45 cm) / inlet (≥45 cm)</span>
+                  <span><code>tds &gt; {A.tds}</code> → <code>feedLocked = true</code>, drain (&lt;45 cm) / inlet (≥45 cm)</span>
                 </div>
                 <div className={`nd-fsm-row ${fw.state === 'PH_RECOVERY' ? 'aktif recovery' : ''}`}>
                   <b>2. PH_RECOVERY</b>
-                  <span><code>ph &lt; 6.5 || ph &gt; 8.2</code> → <code>feedLocked = true</code>, dosing pH-Up / pH-Down</span>
+                  <span><code>ph &lt; {A.phMin} || ph &gt; {A.phMax}</code> → <code>feedLocked = true</code>, dosing pH-Up / pH-Down</span>
                 </div>
                 <div className={`nd-fsm-row ${fw.state === 'NORMAL' ? 'aktif normal' : ''}`}>
                   <b>3. NORMAL</b>
-                  <span><code>feedLocked = false</code>, porsi 50% jika <code>T &lt; 24 || tds &gt; 450</code>, else 100%</span>
+                  <span><code>feedLocked = false</code>, porsi 50% jika <code>T &lt; {A.suhuDingin} || tds &gt; {A.tdsPorsi}</code>, else 100%</span>
                 </div>
               </div>
             </section>

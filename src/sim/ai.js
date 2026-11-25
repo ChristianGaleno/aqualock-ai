@@ -56,16 +56,16 @@ export function hitungFitur(kolam, t, jam) {
   return [kolam.ukur.ph, kolam.ukur.tds, kolam.ukur.suhu, phDelta, jam, pakan6j];
 }
 
-export function tentukanPorsi(risiko, suhu) {
-  if (risiko >= AMBANG.RISIKO_LOCK) return PORSI.KUNCI;
-  if (risiko >= AMBANG.RISIKO_KURANG || suhu < AMBANG.SUHU_DINGIN) return PORSI.KURANG;
+export function tentukanPorsi(risiko, suhu, ambang = AMBANG) {
+  if (risiko >= ambang.RISIKO_LOCK) return PORSI.KUNCI;
+  if (risiko >= ambang.RISIKO_KURANG || suhu < ambang.SUHU_DINGIN) return PORSI.KURANG;
   return PORSI.PENUH;
 }
 
-export function evaluasiAI(kolam, t, jam) {
+export function evaluasiAI(kolam, t, jam, ambang = AMBANG) {
   const x = hitungFitur(kolam, t, jam);
   const risiko = prediksiProba(MODEL, x);
-  const porsi = tentukanPorsi(risiko, x[2]);
+  const porsi = tentukanPorsi(risiko, x[2], ambang);
 
   // Prediksi pH 30 menit ke depan dari tren 30 menit terakhir
   const buf30 = kolam.bufPh.filter((p) => p.t >= t - JENDELA_DELTA_DTK);
@@ -87,12 +87,13 @@ export function evaluasiAI(kolam, t, jam) {
 
 // Durasi dosing proporsional + feed-forward prediksi tren (PRD F2)
 // durasi = (selisih pH ke target ÷ gain pompa) × 0,8  → dibatasi 0,5–4 detik
-export function hitungDosis(ph, phPred) {
+export function hitungDosis(ph, phPred, ambang = AMBANG) {
   let arah, target, acuan;
-  if (ph < 7.0) {
-    arah = 'UP'; target = 7.0; acuan = Math.min(ph, phPred);
+  const tengah = (ambang.PH_MIN + ambang.PH_MAX) / 2;
+  if (ph < tengah) {
+    arah = 'UP'; target = ambang.PH_TARGET_UP ?? 7.0; acuan = Math.min(ph, phPred);
   } else {
-    arah = 'DOWN'; target = 7.5; acuan = Math.max(ph, phPred);
+    arah = 'DOWN'; target = ambang.PH_TARGET_DOWN ?? 7.5; acuan = Math.max(ph, phPred);
   }
   const selisih = Math.abs(target - acuan);
   const durasi = Math.min(AKTUATOR.DOSING_MAKS_DTK,

@@ -14,7 +14,7 @@
 // =============================================================
 import {
   AMBANG, AKTUATOR, KOLAM_DEFAULT, JADWAL_PAKAN, TANGKI_POC,
-  AIR_INLET, INTERVAL, STATE, PORSI,
+  AIR_INLET, INTERVAL, STATE, PORSI, KOMODITAS_DEFAULT, ambilProfilKomoditas,
 } from './constants.js';
 import {
   fraksiNH3, volumeKolamL, suhuHarian, phHarian, PH_V_NETRAL,
@@ -60,8 +60,9 @@ function buatVariasi(rng) {
   };
 }
 
-function buatKolam(idx, kontrol, v, t) {
+function buatKolam(idx, kontrol, v, t, profil) {
   const V0 = volumeKolamL(KOLAM_DEFAULT.diameterM, KOLAM_DEFAULT.tinggiAirM);
+  const phAwal = (profil.ambang.PH_MIN + profil.ambang.PH_MAX) / 2 - 0.1 + v.ph;
   const kolam = {
     id: idx + 1,
     nama: `Kolam ${idx + 1}`,
@@ -69,15 +70,15 @@ function buatKolam(idx, kontrol, v, t) {
     V0,
     // --- kebenaran fisik (tersembunyi dari sistem; hanya simulator yang tahu)
     air: {
-      ph: 7.3 + v.ph, suhu: 27.2, tan: 0.5, lumpurKg: 0.25, tdsDasar: v.tds,
+      ph: phAwal, suhu: 27.6, tan: 0.45, lumpurKg: 0.25, tdsDasar: v.tds,
       volumeL: V0, hujan: 0, bloom: 0, koreksiPh: 0, dosisPending: 0,
       offsetPh: v.ph, offsetSuhu: v.suhu, gainDosis: AKTUATOR.DOSING_GAIN_PH_PER_DTK * v.gainDosis,
     },
-    ikan: { jumlah: v.ikan, bobotG: KOLAM_DEFAULT.bobotIkanG, isiPerutKg: 0, faktorTimer: 1, rasio: KOLAM_DEFAULT.rasioPakanHarian },
+    ikan: { jumlah: profil.tebar.jumlahDefault, bobotG: profil.tebar.bobotG, isiPerutKg: 0, faktorTimer: 1, rasio: profil.tebar.rasioPakan },
     // --- karakter hardware sensor yang sebenarnya
-    hw: { phSlope: v.slope, phOffsetV: v.offV, driftV: 0, tdsGain: v.gainTds, biofoul: 0, phTerasa: 7.3 + v.ph },
+    hw: { phSlope: v.slope, phOffsetV: v.offV, driftV: 0, tdsGain: v.gainTds, biofoul: 0, phTerasa: phAwal },
     kal: null,
-    ukur: { ph: 7.3, tds: 350, suhu: 27, levelCm: 60, vPh: 2.5, vTds: 0.8 },
+    ukur: { ph: phAwal, tds: 350, suhu: 27.6, levelCm: 60, vPh: 2.5, vTds: 0.8 },
     ai: { risiko: 0, porsi: PORSI.PENUH, phPred: 7.3, phDelta: 0, anomali: 'POLA_HARIAN', dataDatar: false, fitur: [] },
     fsm: {
       state: STATE.NORMAL, sub: null, timer: 0, siklus: 0, hitKotor: 0, hitPh: 0,
@@ -139,7 +140,7 @@ function campurAirMasuk(a, vIn) {
 }
 
 // Mengembalikan volume & lumpur yang keluar lewat drain pada langkah ini
-function fisika(k, jam, dt) {
+function fisika(k, jam, dt, ambang = AMBANG) {
   const a = k.air;
   const h = dt / 3600;
   const m3 = a.volumeL / 1000;
@@ -155,7 +156,8 @@ function fisika(k, jam, dt) {
 
   // pH bergerak menuju kesetimbangan: pola harian, alga, limbah, hujan, koreksi dosing
   const lumpurPekat = a.lumpurKg / m3;
-  const phSetimbang = 7.35 + a.offsetPh + phHarian(jam) * (1 + 2 * a.bloom) + 0.75 * a.bloom
+  const phDasar = (ambang.PH_MIN + ambang.PH_MAX) / 2 - 0.1;
+  const phSetimbang = phDasar + a.offsetPh + phHarian(jam) * (1 + 2 * a.bloom) + 0.75 * a.bloom
     - 0.35 * lumpurPekat - 2.6 * a.hujan + a.koreksiPh;
   a.ph += (phSetimbang - a.ph) * (1 - Math.exp(-h / 1.5));
   if (Math.abs(a.dosisPending) > 1e-6) {           // homogenisasi larutan dosing ±2 menit
@@ -187,20 +189,20 @@ function fisika(k, jam, dt) {
   return { keluarL, lumpurKeluar };
 }
 
-// Nafsu makan ikan turun saat air dingin / buruk (sumber pemborosan pakan)
-function nafsuMakan(k) {
+// Nafsu makan udang/ikan turun saat air dingin / kualitas dasar buruk (sumber overfeeding & sisa pakan)
+function nafsuMakan(k, ambang = AMBANG) {
   let n = 1;
-  if (k.air.suhu < AMBANG.SUHU_DINGIN) n *= 0.55;
-  if (k.nh3 > AMBANG.NH3_TOKSIK) n *= 0.4;
-  if (k.air.ph < 6.5 || k.air.ph > 8.5) n *= 0.5;
-  if (tdsSebenarnya(k) > 600) n *= 0.7;
+  if (k.air.suhu < ambang.SUHU_DINGIN) n *= 0.55;
+  if (k.nh3 > ambang.NH3_TOKSIK) n *= 0.4;
+  if (k.air.ph < ambang.PH_MIN || k.air.ph > ambang.PH_MAX + 0.3) n *= 0.5;
+  if (tdsSebenarnya(k) > ambang.TDS_MAX) n *= 0.7;
   return n;
 }
 
-function tebarPakan(k, kg, t) {
+function tebarPakan(k, kg, t, ambang = AMBANG) {
   k.logPakan.push({ t, kg });                       // log servo → fitur riwayat pakan
   while (k.logPakan.length && k.logPakan[0].t < t - 6 * 3600) k.logPakan.shift();
-  const kapasitas = Math.max(0, porsiSekaliMakanKg(k) * 1.1 * nafsuMakan(k) - k.ikan.isiPerutKg);
+  const kapasitas = Math.max(0, porsiSekaliMakanKg(k) * 1.1 * nafsuMakan(k, ambang) - k.ikan.isiPerutKg);
   const dimakan = Math.min(kg, kapasitas);
   const sisa = kg - dimakan;
   k.ikan.isiPerutKg += dimakan;
@@ -282,16 +284,20 @@ export class Simulator {
       sequentialReading: true,
       batasKuras: AKTUATOR.BATAS_KURAS,
       tangkiId: 'ibc',
+      komoditasId: KOMODITAS_DEFAULT,
       ...opsi,
     };
+    this.komoditas = ambilProfilKomoditas(this.opsi.komoditasId);
+    this.ambang = this.komoditas.ambang;
+    this.booting = null;
     this.rng = mulberry32(this.opsi.seed);
     this.t = 6 * 3600; // Hari 1, pukul 06.00
     this.kolam = [];
     this.kembar = [];
     for (let i = 0; i < this.opsi.jumlahKolam; i++) {
       const v = buatVariasi(this.rng);
-      this.kolam.push(buatKolam(i, true, v, this.t));
-      if (this.opsi.kembar) this.kembar.push(buatKolam(i, false, v, this.t));
+      this.kolam.push(buatKolam(i, true, v, this.t, this.komoditas));
+      if (this.opsi.kembar) this.kembar.push(buatKolam(i, false, v, this.t, this.komoditas));
     }
     const tipe = TANGKI_POC.pilihan.find((p) => p.id === this.opsi.tangkiId);
     this.tangki = { nama: tipe.nama, kapasitasL: tipe.kapasitasL, isiL: 120, organikKg: 0.4, luapanL: 0, panenL: 0 };
@@ -301,7 +307,7 @@ export class Simulator {
     this.nomor = 0;
     this.versi = 0;
     this.pesanOled = null;
-    this.catat(null, 'info', 'Sistem menyala. Master Gateway terhubung ke 4 Sensor Node lewat MQTT lokal.');
+    this.catat(null, 'info', `Sistem menyala (mode ${this.komoditas.nama}). Master Gateway terhubung ke 4 Sensor Node lewat MQTT lokal.`);
   }
 
   get jam() { return (this.t % 86400) / 3600; }
@@ -347,12 +353,12 @@ export class Simulator {
     }
 
     for (const k of this.semuaKolam) {
-      const { keluarL, lumpurKeluar } = fisika(k, jam, dt);
+      const { keluarL, lumpurKeluar } = fisika(k, jam, dt, this.ambang);
       if (keluarL > 0) this.alirkanLimbah(k, keluarL, lumpurKeluar);
       bacaSensor(k, dt, this);
       this.jadwalPakan(k, tLama, jam);
-      if (k.nh3 > AMBANG.NH3_TOKSIK) k.stat.menitNh3Toksik += dt / 60;
-      if (k.air.ph < AMBANG.PH_MIN || k.air.ph > AMBANG.PH_MAX) k.stat.menitPhLuar += dt / 60;
+      if (k.nh3 > this.ambang.NH3_TOKSIK) k.stat.menitNh3Toksik += dt / 60;
+      if (k.air.ph < this.ambang.PH_MIN || k.air.ph > this.ambang.PH_MAX) k.stat.menitPhLuar += dt / 60;
       if (waktuEval && k.online) perbaruiBufferPh(k, this.t);
     }
 
@@ -371,10 +377,10 @@ export class Simulator {
       this.logikaNode(k, dt, hang);
       if (hang || !k.online) continue;
       if (waktuEval) {
-        k.ai = evaluasiAI(k, this.t, jam);
+        k.ai = evaluasiAI(k, this.t, jam, this.ambang);
         this.publishSensor(k);
       }
-      this.langkahFsm(k, dt, waktuEval);
+      if (!this.booting) this.langkahFsm(k, dt, waktuEval);
     }
 
     if (waktuRiwayat) {
@@ -414,14 +420,17 @@ export class Simulator {
       const porsi = porsiSekaliMakanKg(k);
       k.stat.pakanJadwalKg += porsi;
       const label = `${String(j).padStart(2, '0')}.00`;
-      if (!k.kontrol) { tebarPakan(k, porsi * k.ikan.faktorTimer, this.t); continue; }
+      if (!k.kontrol) { tebarPakan(k, porsi * k.ikan.faktorTimer, this.t, this.ambang); continue; }
       if (this.terkunci(k)) {
         k.stat.jadwalDilewati++;
-        this.catat(k, 'peringatan', `Jadwal pakan ${label} dilewati: ${k.fsm.state} (kunci pakan aktif).`);
+        const sebab = this.booting
+          ? `BOOTING patokan ${this.booting.targetNama} (keputusan pakan ditahan)`
+          : `${k.fsm.state} (kunci pakan aktif)`;
+        this.catat(k, 'peringatan', `Jadwal pakan ${label} dilewati: ${sebab}.`);
         continue;
       }
       const kg = porsi * k.ai.porsi.faktor;
-      tebarPakan(k, kg, this.t);
+      tebarPakan(k, kg, this.t, this.ambang);
       k.akt.servoSampai = this.t + (kg * 1000) / AKTUATOR.SERVO_G_PER_DTK;
       this.catat(k, 'info', `Pakan otomatis ${label}: ${Math.round(kg * 1000)} g (${k.ai.porsi.kode}).`);
       this.kirimMqtt(`aqualock/kolam${k.id}/cmd`, 'master→node', { servo_ms: Math.round((kg * 1e6) / AKTUATOR.SERVO_G_PER_DTK), porsi: k.ai.porsi.kode });
@@ -429,10 +438,11 @@ export class Simulator {
   }
 
   terkunci(k) {
-    return !k.online || k.kunci.node || k.kunci.stm32 || this.t < this.master.hangSampai;
+    return Boolean(this.booting) || !k.online || k.kunci.node || k.kunci.stm32 || this.t < this.master.hangSampai;
   }
 
   alasanKunci(k) {
+    if (this.booting) return `BOOTING: Memuat patokan ${this.booting.targetNama} (${Math.ceil(this.booting.sisaDtk)} dtk)`;
     if (!k.online) return 'NODE OFFLINE (failsafe lokal)';
     if (this.t < this.master.hangSampai) return 'MPU REBOOT, kunci dipegang STM32';
     if (k.fsm.state === STATE.CLEANING) return 'LOCKOUT: Kuras Limbah ke Tangki POC';
@@ -459,7 +469,7 @@ export class Simulator {
       return { diterima: false, latensiMs, alasan, kolam: k.id };
     }
     const kg = (AKTUATOR.TAKARAN_MANUAL_G / 1000) * k.ai.porsi.faktor;
-    tebarPakan(k, kg, this.t);
+    tebarPakan(k, kg, this.t, this.ambang);
     k.akt.servoSampai = this.t + (kg * 1000) / AKTUATOR.SERVO_G_PER_DTK;
     this.catat(k, 'info', `Pakan manual (${sumber}) diizinkan: ${Math.round(kg * 1000)} g sesuai porsi AI ${k.ai.porsi.kode}.`);
     this.kirimMqtt(`aqualock/kolam${k.id}/cmd`, 'master→node', { servo_ms: Math.round((kg * 1e6) / AKTUATOR.SERVO_G_PER_DTK), sumber });
@@ -535,29 +545,29 @@ export class Simulator {
   }
 
   langkahFsm(k, dt, waktuEval) {
-    const f = k.fsm, u = k.ukur, ai = k.ai;
-    const phLuar = u.ph < AMBANG.PH_MIN || u.ph > AMBANG.PH_MAX;
-    const tdsTinggi = u.tds > AMBANG.TDS_MAX;
-    const risikoTinggi = ai.risiko >= AMBANG.RISIKO_LOCK;
+    const f = k.fsm, u = k.ukur, ai = k.ai, A = this.ambang;
+    const phLuar = u.ph < A.PH_MIN || u.ph > A.PH_MAX;
+    const tdsTinggi = u.tds > A.TDS_MAX;
+    const risikoTinggi = ai.risiko >= A.RISIKO_LOCK;
     f.timer += dt;
 
     // Penyempurnaan: tindakan dipilih sesuai PENYEBAB risiko.
-    // Risiko NH3 tinggi + pH tinggi (> 7,8) → turunkan pH dulu, karena
+    // Risiko NH3 tinggi + pH tinggi → turunkan pH dulu, karena
     // fraksi NH3 bebas naik ±3× tiap pH naik 0,5. Selain itu → kuras.
-    const perluPh = phLuar || (risikoTinggi && u.ph > AMBANG.PH_RISIKO_TINGGI);
+    const perluPh = phLuar || (risikoTinggi && u.ph > A.PH_RISIKO_TINGGI);
     const perluKuras = tdsTinggi || (risikoTinggi && !perluPh);
-    const sudahAman = u.tds <= AMBANG.TDS_MAX - 20 && ai.risiko < AMBANG.RISIKO_LOCK - 0.1
-      && u.ph >= AMBANG.PH_KELUAR_MIN && u.ph <= AMBANG.PH_KELUAR_MAX;
+    const sudahAman = u.tds <= A.TDS_MAX - 20 && ai.risiko < A.RISIKO_LOCK - 0.1
+      && u.ph >= A.PH_KELUAR_MIN && u.ph <= A.PH_KELUAR_MAX;
 
     if (f.state === STATE.NORMAL) {
       if (!waktuEval) return;
       f.hitKotor = perluKuras ? f.hitKotor + 1 : 0;
       f.hitPh = perluPh ? f.hitPh + 1 : 0;
-      if (f.hitKotor >= AMBANG.DEBOUNCE_EVAL) {
-        const alasan = tdsTinggi ? `TDS ${Math.round(u.tds)} ppm > ${AMBANG.TDS_MAX}` : `Risiko NH3 ${ai.risiko.toFixed(2)} ≥ ${AMBANG.RISIKO_LOCK}`;
+      if (f.hitKotor >= A.DEBOUNCE_EVAL) {
+        const alasan = tdsTinggi ? `TDS ${Math.round(u.tds)} ppm > ${A.TDS_MAX}` : `Risiko NH3 ${ai.risiko.toFixed(2)} ≥ ${A.RISIKO_LOCK}`;
         this.masukState(k, STATE.CLEANING, 'CEK_TANGKI', alasan);
-      } else if (f.hitPh >= AMBANG.DEBOUNCE_EVAL) {
-        const alasan = phLuar ? `pH ${u.ph.toFixed(2)} di luar ${AMBANG.PH_MIN}–${AMBANG.PH_MAX}`
+      } else if (f.hitPh >= A.DEBOUNCE_EVAL) {
+        const alasan = phLuar ? `pH ${u.ph.toFixed(2)} di luar ${A.PH_MIN}–${A.PH_MAX}`
           : `Risiko NH3 ${ai.risiko.toFixed(2)} dipicu pH tinggi ${u.ph.toFixed(2)}`;
         this.masukState(k, STATE.PH_RECOVERY, 'HITUNG_DOSIS', alasan);
       }
@@ -629,10 +639,10 @@ export class Simulator {
   }
 
   langkahPh(k, c) {
-    const f = k.fsm, u = k.ukur;
+    const f = k.fsm, u = k.ukur, A = this.ambang;
     switch (f.sub) {
       case 'HITUNG_DOSIS': {
-        const d = hitungDosis(u.ph, k.ai.phPred);
+        const d = hitungDosis(u.ph, k.ai.phPred, A);
         f.dosis = d;
         const arah = d.arah === 'UP' ? 1 : -1;
         const efek = arah * k.air.gainDosis * d.durasi;   // efek fisik sebenarnya
@@ -653,8 +663,8 @@ export class Simulator {
         if (f.timer >= AKTUATOR.HOMOGENISASI_DTK) { f.sub = 'EVALUASI'; f.timer = 0; }
         break;
       case 'EVALUASI':
-        if (c.tdsTinggi) { this.masukState(k, STATE.CLEANING, 'CEK_TANGKI', `TDS ${Math.round(u.tds)} ppm > ${AMBANG.TDS_MAX}`); break; }
-        if (u.ph >= AMBANG.PH_KELUAR_MIN && u.ph <= AMBANG.PH_KELUAR_MAX && !(c.risikoTinggi && u.ph > AMBANG.PH_RISIKO_TINGGI)) {
+        if (c.tdsTinggi) { this.masukState(k, STATE.CLEANING, 'CEK_TANGKI', `TDS ${Math.round(u.tds)} ppm > ${A.TDS_MAX}`); break; }
+        if (u.ph >= A.PH_KELUAR_MIN && u.ph <= A.PH_KELUAR_MAX && !(c.risikoTinggi && u.ph > A.PH_RISIKO_TINGGI)) {
           if (c.risikoTinggi) this.masukState(k, STATE.CLEANING, 'CEK_TANGKI', `pH pulih tetapi risiko NH3 ${k.ai.risiko.toFixed(2)} masih tinggi`);
           else this.keNormal(k, `pH stabil di ${u.ph.toFixed(2)}, risiko NH3 ${k.ai.risiko.toFixed(2)}`);
         } else {
@@ -680,7 +690,7 @@ export class Simulator {
         break;
       case 'pakanBerlebih':
         for (const x of pasangan) { x.air.lumpurKg += 3; x.stat.pakanDiberiKg += 3; x.stat.pakanTerbuangKg += 3; }
-        this.catat(k, 'peringatan', 'Skenario: pekerja menabur 3 kg pakan manual tanpa alat. Sisa pakan mengendap di dasar.');
+        this.catat(k, 'peringatan', `Skenario: overfeeding 3 kg pakan ${this.komoditas.nama.toLowerCase()} manual tanpa alat. Sisa pakan mengendap jadi lumpur dasar.`);
         break;
       case 'bloom':
         for (const x of pasangan) x.air.bloom = 1;
@@ -753,6 +763,53 @@ export class Simulator {
       if (jumlah) k.ikan.jumlah = jumlah;
       if (rasio) k.ikan.rasio = rasio;
     }
+    this.versi++;
+  }
+
+  // Jeda booting 30 dtk saat pergantian mode komoditas: tahan keputusan pakan & FSM
+  mulaiBooting(targetId, totalDtk = 30) {
+    const target = ambilProfilKomoditas(targetId);
+    this.booting = { targetId: target.id, targetNama: target.nama, sisaDtk: totalDtk, totalDtk };
+    this.catat(null, 'peringatan', `Booting patokan mode ${target.nama} (${totalDtk} dtk). Keputusan pakan & transisi FSM ditahan sampai selesai.`);
+    this.versi++;
+  }
+
+  perbaruiBooting(sisaDtk) {
+    if (!this.booting) return;
+    this.booting = { ...this.booting, sisaDtk: Math.max(0, sisaDtk) };
+    this.versi++;
+  }
+
+  terapkanKomoditas(targetId, dilewati = false) {
+    const profil = ambilProfilKomoditas(targetId);
+    this.opsi.komoditasId = profil.id;
+    this.komoditas = profil;
+    this.ambang = profil.ambang;
+    this.booting = null;
+    for (const k of this.semuaKolam) {
+      k.ikan.jumlah = profil.tebar.jumlahDefault;
+      k.ikan.bobotG = profil.tebar.bobotG;
+      k.ikan.rasio = profil.tebar.rasioPakan;
+      k.fsm.hitKotor = 0;
+      k.fsm.hitPh = 0;
+    }
+    for (const k of this.kolam) {
+      if (k.online) k.ai = evaluasiAI(k, this.t, this.jam, this.ambang);
+    }
+    this.catat(
+      null,
+      'aman',
+      `Patokan mode ${profil.nama} aktif${dilewati ? ' (Skip Booting)' : ''}: pH ${profil.ambang.PH_MIN}–${profil.ambang.PH_MAX}, TDS ≤ ${profil.ambang.TDS_MAX} ppm, suhu dingin < ${profil.ambang.SUHU_DINGIN} °C, pakan ${(profil.tebar.rasioPakan * 100).toFixed(1)}%.`,
+    );
+    this.kirimMqtt('aqualock/system/profile', 'master→node', {
+      commodity: profil.id,
+      ph_min: profil.ambang.PH_MIN,
+      ph_max: profil.ambang.PH_MAX,
+      tds_max: profil.ambang.TDS_MAX,
+      temp_cold: profil.ambang.SUHU_DINGIN,
+      risk_lock: profil.ambang.RISIKO_LOCK,
+      skipped: dilewati,
+    }, true);
     this.versi++;
   }
 
