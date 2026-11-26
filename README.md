@@ -5,7 +5,7 @@
 # AQUA-LOCK AI — Simulator Dashboard (IDTC 2.0 AIoT)
 
 Simulasi web React untuk demo prototipe Fase 2: klaster 4 kolam, Safety Interlock,
-FSM 3 status, model XGBoost risiko amonia, kalibrasi terpandu, dan aliran MQTT.
+FSM 3 status, model XGBoost risiko amonia, kalibrasi terpandu, dan aliran MQTT. Link Website : https://aqualock-ai.vercel.app/
 
 ## Menjalankan
 
@@ -45,15 +45,6 @@ node ml/cek_model_js.mjs   # pastikan hasil JS = Python
 
 `T` tur 2 menit · `Enter` jelajah · `L` timelapse 24 jam · `H` bersihkan layar · `Spasi` jeda ·
 `1`–`8` buka bagian · `←/→` langkah tur · `Esc` tutup.
-
-## Alur data (yang paling sering ditanya juri)
-
-1. **ESP32 node** membaca sensor berurutan: MOSFET TDS ON → stabil → baca TDS → MOSFET OFF → jeda → baca pH → baca suhu (`bacaSensor`).
-2. Tiap 30 detik node publish JSON ke `aqualock/kolam{n}/sensor` (MQTT QoS 1).
-3. **MPU Linux** (Uno Q) menghitung 6 fitur → XGBoost → risiko NH3 → porsi (`evaluasiAI`).
-4. **FSM** memutuskan status (`langkahFsm`): NORMAL / CLEANING / PH_RECOVERY, debounce 2 evaluasi.
-5. Perintah dikirim ke `aqualock/kolam{n}/cmd`; `feed_lock` disimpan di MPU, STM32, dan ESP32.
-6. Tombol Manual Feed saat terkunci → ditolak, servo diam, buzzer bunyi (`tekanPakanManual`).
 
 ## Hasil model (data uji 20% hari terakhir)
 
