@@ -17,6 +17,7 @@ import ArsitekturTab from './ui/ArsitekturTab.jsx';
 import Chatbot from './ui/Chatbot.jsx';
 import { angka, jamMenit } from './ui/format.js';
 import { IkonPlay, IkonPause, IkonReset } from './ui/Icons.jsx';
+import logoIcon from './assets/logo-icon.png';
 
 const KECEPATAN = [
   { v: 60, label: '1 mnt/dtk' },
@@ -25,23 +26,16 @@ const KECEPATAN = [
   { v: 14400, label: '4 jam/dtk' },
 ];
 
-function Logo({ ukuran = 40 }) {
+function Logo({ ukuran = 40, className = '' }) {
   return (
-    <svg width={ukuran} height={ukuran} viewBox="0 0 64 64" aria-hidden="true">
-      <defs>
-        <linearGradient id="aq-logo" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#0E75BB" />
-          <stop offset="55%" stopColor="#21979F" />
-          <stop offset="100%" stopColor="#00969B" />
-        </linearGradient>
-      </defs>
-      <path d="M32 4c11 13 19 23 19 33a19 19 0 0 1-38 0c0-10 8-20 19-33z" fill="url(#aq-logo)" />
-      <path d="M12 42a21 21 0 0 0 34 9" stroke="#0E75BB" strokeWidth="4" fill="none" strokeLinecap="round" />
-      <path d="M44 47l3 5 5-3" stroke="#00969B" strokeWidth="4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      <rect x="23" y="32" width="18" height="14" rx="3" fill="#fff" />
-      <path d="M26.5 32v-4a5.5 5.5 0 0 1 11 0v4" stroke="#fff" strokeWidth="3.4" fill="none" />
-      <circle cx="32" cy="39" r="2.6" fill="#0E75BB" />
-    </svg>
+    <img
+      src={logoIcon}
+      alt="Logo AQUA-LOCK AI"
+      width={ukuran}
+      height={ukuran}
+      className={`logo-aqualock ${className}`}
+      style={{ objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
+    />
   );
 }
 

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo-full.png" alt="AQUA-LOCK AI Logo" width="340" />
+</p>
+
 # AQUA-LOCK AI — Simulator Dashboard (IDTC 2.0 AIoT)
 
 Simulasi web React untuk demo prototipe Fase 2: klaster 4 kolam, Safety Interlock,
